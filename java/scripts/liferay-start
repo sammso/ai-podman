@@ -1,0 +1,120 @@
+#!/bin/bash
+# Start a Liferay environment: liferay-start <staging|live> [--no-wait] [--timeout N]
+#
+# Checks, then starts, then verifies. It never repairs anything: provisioning the
+# database, starting PostgreSQL and killing stale JVMs all belong to liferay-up.
+# The split is by authority, not by thoroughness — checks are free
+# of consequences, and without them this command's "Tomcat started." was a lie
+# (startup.sh forks and returns 0 whether or not the portal survives boot).
+#
+# Exit codes:
+#   0  portal is serving (started by us, or already up)
+#   1  usage error / environment not installed
+#   2  preflight refused — NOTHING was started
+#   3  started but never served
+set -euo pipefail
+source "$(dirname "$(readlink -f "$0")")/liferay-common.sh"
+
+usage() { echo "usage: liferay-start <staging|live> [--no-wait] [--timeout SECONDS]" >&2; exit 1; }
+
+ENV_NAME=""; WAIT=1; TIMEOUT=900
+while (($#)); do
+    case "$1" in
+        --no-wait) WAIT=0 ;;
+        --timeout) shift; TIMEOUT="${1:?--timeout needs a value}" ;;
+        -h|--help) usage ;;
+        -*) echo "unknown option: $1" >&2; usage ;;
+        *) [[ -z "$ENV_NAME" ]] || usage; ENV_NAME="$1" ;;
+    esac
+    shift
+done
+[[ -n "$ENV_NAME" ]] || usage
+env_base "$ENV_NAME" >/dev/null || exit 1
+
+ENV_DIR=$(env_dir "$ENV_NAME")
+PORT=$(env_port "$ENV_NAME")
+URL=$(env_url "$ENV_NAME")
+[[ -d "$ENV_DIR" ]] || { say_err "$ENV_DIR not found; run: liferay-env-create $ENV_NAME"; exit 1; }
+
+TOMCAT_DIR=$(tomcat_dir "$ENV_NAME")
+[[ -x "$TOMCAT_DIR/bin/startup.sh" ]] || {
+    say_err "no Tomcat under $ENV_DIR — the environment looks incomplete"
+    say_err "recreate it with: liferay-env-create $ENV_NAME"
+    exit 1
+}
+
+# --- already running? --------------------------------------------------------
+# Without this guard a second startup.sh launches a JVM onto ports the first one
+# already holds; it dies with BindException on 21080/21005 but the process
+# lingers, and liferay-stop cannot reap it (shutdown.sh only reaches the
+# instance that owns the shutdown port).
+mapfile -t PIDS < <(tomcat_pids "$ENV_NAME")
+if ((${#PIDS[@]})); then
+    if portal_serving "$ENV_NAME"; then
+        say_ok "Liferay '$ENV_NAME' is already running"
+        printf '  %s  (pid %s, up %s)\n' "$URL" "${PIDS[0]}" "$(pid_uptime "${PIDS[0]}")"
+        ((${#PIDS[@]} > 1)) && say_warn "${#PIDS[@]} Tomcat processes for this env: ${PIDS[*]} — consider: liferay-up $ENV_NAME --restart"
+        exit 0
+    fi
+    say_err "Liferay '$ENV_NAME' is running (pid ${PIDS[*]}) but NOT serving on $PORT (HTTP $(portal_code "$ENV_NAME"))"
+    echo "  Last errors:" >&2
+    log_excerpt "$ENV_NAME" 6 >&2
+    log_paths "$ENV_NAME" >&2
+    echo "  Not starting a second instance. Restart with: liferay-up $ENV_NAME --restart" >&2
+    exit 2
+fi
+
+# A shutdown port held with no Tomcat of ours behind it means something else has
+# it; Tomcat would launch and then die on BindException.
+SHUTDOWN_PORT=$(env_shutdown_port "$ENV_NAME")
+if port_in_use "$SHUTDOWN_PORT"; then
+    say_err "port $SHUTDOWN_PORT is held by a process that is not a Tomcat for '$ENV_NAME'"
+    say_err "Tomcat would fail with 'Address already in use' — free the port first"
+    exit 2
+fi
+
+# --- preflight: check only, never provision ----------------------------------
+pg_up || { say_err "PostgreSQL is not running; run 'pg-start' (or 'liferay-up $ENV_NAME')"; exit 2; }
+
+if load_db_config "$ENV_NAME"; then
+    if ! db_role_exists; then
+        say_err "PostgreSQL role '$DB_USER' does not exist"
+        say_err "Liferay would fail with: FATAL: role \"$DB_USER\" does not exist"
+        say_err "run 'liferay-up $ENV_NAME' to provision it"
+        exit 2
+    fi
+    if ! db_exists; then
+        say_err "database '$DB_NAME' does not exist — run 'liferay-up $ENV_NAME' to provision it"
+        exit 2
+    fi
+    if ! db_connect_ok; then
+        say_err "cannot connect to '$DB_NAME' as '$DB_USER' — Liferay would fail the same way"
+        db_connect_error | sed 's/^/    /' >&2
+        exit 2
+    fi
+    say_ok "database '$DB_NAME' reachable as '$DB_USER'"
+else
+    say_warn "no local PostgreSQL JDBC URL in portal-ext.properties — skipping database checks"
+fi
+
+# Search is the bundle's embedded Elasticsearch sidecar, started with the portal —
+# there is no external Elasticsearch to gate on. report_search flags a misconfigured
+# sidecar (config PID not matching the shipped connector) without blocking startup.
+report_search "$ENV_NAME"
+
+# --- launch and verify -------------------------------------------------------
+say_run "starting Liferay '$ENV_NAME' ..."
+"$TOMCAT_DIR/bin/startup.sh"
+
+if ((WAIT == 0)); then
+    echo "Liferay '$ENV_NAME' starting: $URL (not waiting; check with: liferay-status $ENV_NAME)"
+    echo "Logs: tail -f $TOMCAT_DIR/logs/catalina.out"
+    exit 0
+fi
+
+if wait_portal "$ENV_NAME" "$TIMEOUT"; then
+    exit 0
+fi
+log_excerpt "$ENV_NAME" 8 >&2
+log_paths "$ENV_NAME" >&2
+exit 3

@@ -1,0 +1,209 @@
+#!/bin/bash
+# Create a Liferay environment: liferay-env-create <path-to-bundle.tar.gz> [staging|live]
+# The env name is optional and defaults to staging; pass 'live' for the second environment.
+# Installs from the given local bundle .tar.gz: unpacks to ~/liferay/<env>, sets the port set,
+# connects it to local PostgreSQL, configures the bundle's embedded Elasticsearch sidecar,
+# shares a tunnel secret between staging and live for remote publishing, and (DXP) deploys
+# activation keys from ~/liferay/licenses/. Product (DXP vs CE) and release are detected from
+# the bundle, not passed in.
+#
+# Everything it claims to provision, it verifies. An environment that is reported
+# "ready" boots; it never prints a NOTE about work it skipped and exits 0.
+set -euo pipefail
+source "$(dirname "$(readlink -f "$0")")/liferay-common.sh"
+
+usage() { echo "usage: liferay-env-create <bundle.tar.gz> [staging|live]   (env defaults to staging)" >&2; exit 1; }
+[[ $# -ge 1 ]] || usage
+# The signature flipped (tarball first). Catch the old habit of leading with the env name and
+# say so, instead of the opaque "bundle not found: staging".
+if [[ "$1" == staging || "$1" == live ]] && [[ ! -f "$1" ]]; then
+    say_err "the bundle path comes first now: liferay-env-create <bundle.tar.gz> ${1}"
+    exit 1
+fi
+TARBALL=$(readlink -f -- "$1") && [[ -f "$TARBALL" ]] || { say_err "bundle not found: $1"; exit 1; }
+case "$TARBALL" in *.tar.gz|*.tgz) ;; *) say_warn "'$1' is not a .tar.gz — trying anyway" ;; esac
+
+ENV_NAME="${2:-staging}"
+BASE=$(env_base "$ENV_NAME") || exit 1
+
+# Dedicated Liferay DB credentials (overridable). Local PG is trust auth, so the password
+# is set on the role and used by Liferay but not enforced for localhost connections.
+DB_USER="${LIFERAY_DB_USER:-liferay}"
+DB_PASS="${LIFERAY_DB_PASSWORD:-admin}"
+
+LIFERAY_HOME_DIR="$HOME/liferay"
+ENV_DIR="$LIFERAY_HOME_DIR/$ENV_NAME"
+mkdir -p "$LIFERAY_HOME_DIR"   # the .unpack tmpdir, the env, and the tunnel secret all live here
+
+[[ -d "$ENV_DIR" ]] && { say_err "$ENV_DIR already exists; remove it to recreate"; exit 1; }
+
+# --- service preflight, before the multi-GB unpack ---------------------------
+# The original only provisioned the role and database "if pg_isready" and printed
+# a NOTE otherwise — still exiting 0 with "Environment ready. Start it with:
+# liferay-start". That is how an environment gets created that cannot boot.
+# Fail (or fix) in two seconds rather than after a three-minute unpack.
+if pg_up; then
+    say_ok "PostgreSQL running"
+else
+    say_run "PostgreSQL is down — starting"
+    PG_OUT=$(pg-start 2>&1) || { say_err "pg-start failed"; sed 's/^/    /' <<<"$PG_OUT" >&2; exit 1; }
+    pg_up || { say_err "PostgreSQL still not accepting connections — cannot provision the database"; exit 1; }
+    say_ok "PostgreSQL started"
+fi
+
+echo "Installing from $TARBALL ..."
+UNPACK_DIR=$(mktemp -d "$LIFERAY_HOME_DIR/.unpack.XXXXXX")
+# Without this, a failure mid-unpack leaks the temp dir, and a failure after the
+# mv leaves a half-configured $ENV_DIR that the guard above then refuses to
+# recreate — forcing a manual rm before you can retry.
+cleanup() {
+    local rc=$?
+    rm -rf "$UNPACK_DIR"
+    ((rc == 0)) || [[ ! -d "$ENV_DIR" ]] || {
+        say_warn "removing incomplete $ENV_DIR so the command can be retried"
+        rm -rf "$ENV_DIR"
+    }
+    exit $rc
+}
+trap cleanup EXIT
+
+tar -xzf "$TARBALL" -C "$UNPACK_DIR"
+mapfile -t UNPACKED < <(find "$UNPACK_DIR" -mindepth 1 -maxdepth 1 -type d)
+((${#UNPACKED[@]} == 1)) || {
+    say_err "expected exactly one top-level directory in $TARBALL, found ${#UNPACKED[@]}"
+    exit 1
+}
+mv "${UNPACKED[0]}" "$ENV_DIR"
+
+TOMCAT_DIR=$(tomcat_dir "$ENV_NAME")
+[[ -x "$TOMCAT_DIR/bin/startup.sh" ]] || { say_err "no Tomcat in the unpacked bundle — is $TARBALL a Tomcat bundle?"; exit 1; }
+
+# --- record what was ACTUALLY installed --------------------------------------
+# Product and release are read off the unpacked bundle, never from the CLI: the
+# tarball is the single source of truth. .liferay-version carries the release and
+# usually the edition; the filename is the fallback for the DXP/CE distinction.
+ACTUAL_RELEASE=$(cat "$ENV_DIR/.liferay-version" 2>/dev/null || true)
+[[ -n "$ACTUAL_RELEASE" ]] || ACTUAL_RELEASE=unknown
+if   grep -qi 'dxp'                  "$ENV_DIR/.liferay-version" 2>/dev/null; then ACTUAL_PRODUCT=dxp
+elif grep -qiE 'community|portal ce' "$ENV_DIR/.liferay-version" 2>/dev/null; then ACTUAL_PRODUCT=ce
+else
+    case "${TARBALL##*/}" in
+        *dxp*)    ACTUAL_PRODUCT=dxp ;;
+        *portal*) ACTUAL_PRODUCT=ce ;;
+        *) ACTUAL_PRODUCT=ce
+           say_warn "cannot tell DXP from CE for ${TARBALL##*/} — assuming ce (no activation key deployed)" ;;
+    esac
+fi
+PRODUCT_TAG="${ACTUAL_PRODUCT}:${ACTUAL_RELEASE}"
+printf '%s\n' "$PRODUCT_TAG" > "$ENV_DIR/.product"
+
+# Remote publishing needs both envs on the same product+release. Compared here,
+# after the unpack, so it weighs the real tags: done earlier it would compare a
+# requested release against a possibly-wrong stored one and stay silent.
+OTHER_ENV=$([[ "$ENV_NAME" == staging ]] && echo live || echo staging)
+if [[ -f "$LIFERAY_HOME_DIR/$OTHER_ENV/.product" ]]; then
+    OTHER_TAG=$(cat "$LIFERAY_HOME_DIR/$OTHER_ENV/.product")
+    if [[ "$OTHER_TAG" != "$PRODUCT_TAG" ]]; then
+        say_warn "'$OTHER_ENV' is $OTHER_TAG but '$ENV_NAME' is $PRODUCT_TAG."
+        say_warn "Remote publishing requires both environments on the same product and release!"
+    else
+        say_ok "matches '$OTHER_ENV' ($PRODUCT_TAG) — remote publishing is possible"
+    fi
+fi
+
+# --- DXP activation keys: auto-deploy everything from ~/liferay/licenses/ ---
+if [[ "$ACTUAL_PRODUCT" == dxp ]]; then
+    LICENSES_DIR="$LIFERAY_HOME_DIR/licenses"
+    mkdir -p "$ENV_DIR/deploy" "$LICENSES_DIR"
+    KEYS=("$LICENSES_DIR"/*.xml)
+    if [[ -e "${KEYS[0]}" ]]; then
+        cp "${KEYS[@]}" "$ENV_DIR/deploy/"
+        echo "Deployed activation key(s): ${KEYS[*]##*/}"
+    elif compgen -G "$ENV_DIR/deploy/*.xml" >/dev/null; then
+        say_ok "bundle ships its own activation key: $(cd "$ENV_DIR/deploy" && echo *.xml)"
+    else
+        say_warn "no activation key found in $LICENSES_DIR"
+        echo "      Download your DXP activation key XML from https://support.liferay.com"
+        echo "      (Account > Activation Keys), place it in $LICENSES_DIR/, then either"
+        echo "      recreate the env or copy it to $ENV_DIR/deploy/ (hot-deploys at runtime)."
+    fi
+fi
+
+# --- port set: 8005/8009/8080/8443 -> BASE005/BASE009/BASE080/BASE443 ---
+# AJP (8009) is shipped commented out, but leaving it at the stock port means two
+# environments collide the moment anyone enables it.
+sed -i -e "s/port=\"8005\"/port=\"${BASE}005\"/" \
+       -e "s/port=\"8009\"/port=\"${BASE}009\"/" \
+       -e "s/port=\"8080\"/port=\"${BASE}080\"/" \
+       -e "s/redirectPort=\"8443\"/redirectPort=\"${BASE}443\"/" \
+    "$TOMCAT_DIR/conf/server.xml"
+
+# --- shared tunnel secret (same for staging and live => remote publishing works) ---
+SECRET_FILE="$LIFERAY_HOME_DIR/tunnel-secret"
+if [[ ! -f "$SECRET_FILE" ]]; then
+    od -An -tx1 -N16 /dev/urandom | tr -d ' \n' > "$SECRET_FILE"
+    chmod 600 "$SECRET_FILE"
+fi
+
+# --- portal-ext.properties: PostgreSQL, Gogo port, tunneling ---
+cat > "$ENV_DIR/portal-ext.properties" <<PROPS
+# ${ENV_NAME} environment (HTTP $(env_port "$ENV_NAME"))
+jdbc.default.driverClassName=org.postgresql.Driver
+jdbc.default.url=jdbc:postgresql://localhost:5432/lportal_${ENV_NAME}
+jdbc.default.username=${DB_USER}
+jdbc.default.password=${DB_PASS}
+
+module.framework.properties.osgi.console=localhost:$(env_gogo_port "$ENV_NAME")
+
+# Remote publishing (staging <-> live share this secret)
+tunneling.servlet.shared.secret=$(cat "$SECRET_FILE")
+tunneling.servlet.shared.secret.hex=true
+tunnel.servlet.hosts.allowed=127.0.0.1,SERVER_IP
+
+setup.wizard.enabled=false
+terms.of.use.required=false
+users.reminder.queries.enabled=false
+PROPS
+# Contains the DB password; the tunnel secret file is already 600.
+chmod 600 "$ENV_DIR/portal-ext.properties"
+
+# --- search: pin the bundle's embedded Elasticsearch sidecar to a per-env port ---
+# The connector is a property of the BUNDLE, not of the product string. The .config
+# is only honoured when its PID names the connector the bundle actually ships
+# (dxp => elasticsearch8, CE 7.4 => elasticsearch7) — otherwise Liferay ignores it
+# and the sidecar defaults to 9201, which the two envs would fight over. Derive the
+# PID from the jars just unpacked, and give each env its own sidecar port.
+mkdir -p "$ENV_DIR/osgi/configs"
+mapfile -t CONNECTORS < <(es_connector_versions "$ENV_NAME")
+SIDECAR_PORT=$(env_sidecar_port "$ENV_NAME")
+
+if ((${#CONNECTORS[@]} != 1)); then
+    say_warn "bundle ships ${#CONNECTORS[@]} Elasticsearch connectors (${CONNECTORS[*]:-none}) — cannot configure search"
+    say_warn "the sidecar will default to port 9201 and collide with the other environment"
+else
+    ES_CONFIG_PID="com.liferay.portal.search.elasticsearch${CONNECTORS[0]}.configuration.ElasticsearchConfiguration"
+    cat > "$ENV_DIR/osgi/configs/${ES_CONFIG_PID}.config" <<ESCONF
+productionModeEnabled=B"false"
+sidecarHttpPort=I"${SIDECAR_PORT}"
+indexNamePrefix="liferay-${ENV_NAME}-"
+ESCONF
+    say_ok "embedded elasticsearch${CONNECTORS[0]} sidecar on ${SIDECAR_PORT} (index prefix liferay-${ENV_NAME}-)"
+fi
+
+# --- database + dedicated Liferay role ---
+load_db_config "$ENV_NAME" || { say_err "could not read the JDBC settings just written to $ENV_DIR/portal-ext.properties"; exit 1; }
+db_ensure_role
+db_ensure_database
+# Provisioning that isn't proven is the same bug as starting that isn't verified.
+if ! db_connect_ok; then
+    say_err "cannot connect to $DB_NAME as '$DB_USER' — Liferay would fail the same way"
+    db_connect_error | sed 's/^/    /' >&2
+    exit 1
+fi
+say_ok "database $DB_NAME reachable as '$DB_USER'"
+
+echo
+say_ok "Environment '${ENV_NAME}' ready (${PRODUCT_TAG}): $ENV_DIR"
+echo "Start it with: liferay-up ${ENV_NAME}   (HTTP $(env_url "$ENV_NAME"))"
+echo "Check it with: liferay-status ${ENV_NAME}"
+echo "Default login: test@liferay.com / test"

@@ -1,0 +1,27 @@
+#!/bin/bash
+# Stop a Liferay environment: liferay-stop <staging|live>
+#
+# Thin wrapper over Tomcat's shutdown.sh: it reaches only the instance that owns
+# the shutdown port and does not wait or verify. Use liferay-down for a stop that
+# actually guarantees the JVMs are gone.
+set -euo pipefail
+source "$(dirname "$(readlink -f "$0")")/liferay-common.sh"
+
+ENV_NAME="${1:?usage: liferay-stop <staging|live>}"
+env_base "$ENV_NAME" >/dev/null || exit 1
+
+ENV_DIR=$(env_dir "$ENV_NAME")
+[[ -d "$ENV_DIR" ]] || { say_err "$ENV_DIR not found"; exit 1; }
+
+# tomcat_dir returns empty rather than failing; the old `ls -d …| head -1` form
+# aborted the script at the assignment under `set -euo pipefail` when the glob
+# missed, which made the error message below unreachable.
+TOMCAT_DIR=$(tomcat_dir "$ENV_NAME")
+[[ -x "$TOMCAT_DIR/bin/shutdown.sh" ]] || { say_err "no Tomcat under $ENV_DIR"; exit 1; }
+
+# shutdown.sh against a stopped Tomcat prints a Java connection stack trace and
+# exits non-zero; say so plainly instead.
+mapfile -t PIDS < <(tomcat_pids "$ENV_NAME")
+((${#PIDS[@]})) || { say_ok "Liferay '$ENV_NAME' is not running — nothing to stop"; exit 0; }
+
+"$TOMCAT_DIR/bin/shutdown.sh"

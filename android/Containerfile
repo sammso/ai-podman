@@ -1,0 +1,65 @@
+# localhost/ai-android — Android development on top of ai-base.
+# Temurin JDK 17/21/25 (default 17, Android's supported build JDK), Android SDK
+# (platform-tools/adb, build-tools, platforms, emulator + system image), Flutter.
+# React Native needs no image additions (Node/NPM come from ai-base; use npx).
+# KVM and USB devices are passed through at box creation, not baked here.
+FROM localhost/ai-base:latest
+
+COPY scripts/install-jdks.sh /opt/build/
+
+RUN bash /opt/build/install-jdks.sh 17 && rm -rf /opt/build
+
+ENV ANDROID_HOME=/opt/android-sdk \
+    ANDROID_SDK_ROOT=/opt/android-sdk
+ENV PATH=${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:/opt/flutter/bin:${PATH}
+
+# Emulator runtime libraries (Chrome in ai-base already pulls most GUI libs)
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpulse0 libgl1 libglu1-mesa libasound2t64 libnss3 libxcomposite1 \
+        libxcursor1 libxi6 libxtst6 libxrandr2 libsecret-1-0 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Android SDK: cmdline-tools, then sdkmanager installs the rest (licenses auto-accepted)
+RUN set -e; \
+    export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64; \
+    curl -fsSL -o /tmp/cmdline-tools.zip \
+      https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip; \
+    install -d ${ANDROID_HOME}/cmdline-tools; \
+    unzip -q /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools; \
+    mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest; \
+    rm /tmp/cmdline-tools.zip; \
+    yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null; \
+    ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install \
+        "platform-tools" \
+        "build-tools;36.0.0" \
+        "platforms;android-36" \
+        "platforms;android-35" \
+        "emulator" \
+        "system-images;android-36;google_apis;x86_64"; \
+    chmod -R a+rwX ${ANDROID_HOME}
+
+# Flutter (stable channel) system-wide; runs from /opt/flutter (outside $HOME)
+RUN set -e; \
+    git clone --depth 1 -b stable https://github.com/flutter/flutter.git /opt/flutter; \
+    git config --system --add safe.directory /opt/flutter; \
+    export TAR_OPTIONS=--no-same-owner; \
+    /opt/flutter/bin/flutter precache --android; \
+    chmod -R a+rwX /opt/flutter
+
+# Android env for every shell (system-wide, independent of $HOME)
+RUN printf 'export ANDROID_HOME=/opt/android-sdk\nexport ANDROID_SDK_ROOT=/opt/android-sdk\nexport PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:/opt/flutter/bin:$PATH\n' \
+      > /etc/profile.d/android.sh \
+    && cat /etc/profile.d/android.sh >> /etc/bash.bashrc
+
+# Android Studio IDE — `studio` launches it to the host desktop (run under --gui --x11)
+COPY scripts/install-android-studio.sh /opt/build/
+RUN bash /opt/build/install-android-studio.sh && rm -rf /opt/build
+
+# `tools` banner: append the android section and name the image
+COPY android/tools.d/40-android.txt /etc/ai-dev/tools.d/
+RUN echo android > /etc/ai-dev/kit
+
+LABEL org.opencontainers.image.title="ai-android" \
+      org.opencontainers.image.description="Android dev: Android Studio, JDK 17 default, Android SDK + emulator, Flutter, React Native-ready"

@@ -1,0 +1,56 @@
+# localhost/ai-java — Java development on top of ai-base (also bundles a full Liferay stack).
+# Temurin JDK 17/21/25 (default 21) via SDKMAN, Gradle, Maven, IntelliJ IDEA, Liferay Blade CLI.
+FROM localhost/ai-base:latest
+
+COPY scripts/install-jdks.sh /opt/build/
+
+RUN bash /opt/build/install-jdks.sh 21 && rm -rf /opt/build
+
+# Gradle + Maven via SDKMAN; Blade CLI as a system-wide jar + wrapper
+# (Blade's own installer targets $HOME, which a --persist-work home mount shadows).
+RUN set -e; \
+    export SDKMAN_DIR=/opt/sdkman; \
+    bash -c 'set +u; source /opt/sdkman/bin/sdkman-init.sh; sdk install gradle; sdk install maven'; \
+    chmod -R a+rwX /opt/sdkman; \
+    install -d /opt/blade; \
+    curl -fsSL -o /opt/blade/blade.jar \
+      "https://repository.liferay.com/nexus/service/local/artifact/maven/content?r=liferay-public-releases&g=com.liferay.blade&a=com.liferay.blade.cli&v=LATEST"; \
+    printf '#!/bin/bash\nexec java --enable-native-access=ALL-UNNAMED -jar /opt/blade/blade.jar "$@"\n' > /usr/local/bin/blade; \
+    chmod +x /usr/local/bin/blade
+
+# PostgreSQL + MinIO (user-owned, data under $HOME; see pg-start/minio-start)
+COPY scripts/install-postgres-minio.sh /opt/build/
+RUN bash /opt/build/install-postgres-minio.sh && rm -rf /opt/build
+
+# (Search: Liferay uses its own embedded Elasticsearch sidecar — no standalone ES here.)
+
+# Staging/live Liferay environments for remote publishing (bundles live in the
+# $HOME, not the image; see liferay-env-create / liferay-start / liferay-stop)
+COPY scripts/install-liferay-envs.sh /opt/build/
+RUN bash /opt/build/install-liferay-envs.sh && rm -rf /opt/build
+
+# SQLLine — JDBC SQL client + Postgres driver (see sqlline / pg-sql)
+COPY scripts/install-sqlline.sh /opt/build/
+RUN bash /opt/build/install-sqlline.sh && rm -rf /opt/build
+
+# IntelliJ IDEA Ultimate — `idea` launches it to the host desktop (run under --gui --x11)
+COPY scripts/install-intellij.sh /opt/build/
+RUN bash /opt/build/install-intellij.sh && rm -rf /opt/build
+
+# Liferay lifecycle commands (the canonical set — env-create/start/stop plus self-healing
+# up/down/status). This COPY runs after install-liferay-envs.sh, so these override any
+# same-named scripts it generated; that generator now only emits liferay-download + the
+# bundle resolver. liferay-common.sh is sourced by the others from the same dir (non-exec).
+COPY java/scripts/liferay-common.sh java/scripts/liferay-env-create \
+     java/scripts/liferay-start java/scripts/liferay-stop java/scripts/liferay-up \
+     java/scripts/liferay-down java/scripts/liferay-status /usr/local/bin/
+RUN chmod +x /usr/local/bin/liferay-env-create /usr/local/bin/liferay-start \
+             /usr/local/bin/liferay-stop /usr/local/bin/liferay-up \
+             /usr/local/bin/liferay-down /usr/local/bin/liferay-status
+
+# `tools` banner: append the java section and name the image
+COPY java/tools.d/40-java.txt /etc/ai-dev/tools.d/
+RUN echo java > /etc/ai-dev/kit
+
+LABEL org.opencontainers.image.title="ai-java" \
+      org.opencontainers.image.description="Java/Liferay dev: IntelliJ IDEA Ultimate, JDK 17/21/25, Gradle, Maven, Blade CLI, PostgreSQL, MinIO, SQLLine (Liferay uses its embedded Elasticsearch sidecar)"

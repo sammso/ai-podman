@@ -1,0 +1,64 @@
+# localhost/ai-base — AI development base image.
+# Claude Code, Codex and Gemini CLIs, Google Chrome, Node 22 LTS and CLI essentials.
+# No USER/ENTRYPOINT: run-sandboxed.sh runs it as the invoking user via plain podman.
+FROM ubuntu:24.04
+
+# Install npm globals into a user-owned prefix so the AI CLIs (Claude/Codex/Gemini/
+# agent-browser) can self-update as the container user (uid 1000) without root. The default
+# prefix /usr puts bin symlinks in root-owned /usr/bin, which blocks `claude update`/npm -g
+# ("no write permission to npm prefix"). uid 1000 = user `ubuntu` in this image.
+ENV NPM_CONFIG_PREFIX=/opt/npm \
+    PATH=/opt/npm/bin:$PATH
+RUN install -d -o ubuntu -g ubuntu /opt/npm
+
+COPY scripts/install-base-utils.sh scripts/install-node-clis.sh scripts/install-chrome.sh /opt/build/
+
+RUN bash /opt/build/install-base-utils.sh \
+    && bash /opt/build/install-node-clis.sh \
+    && bash /opt/build/install-chrome.sh \
+    && rm -rf /opt/build
+
+# Claude Desktop (official Linux beta) - add to the host menu with
+# `podman/export-app.sh --persist-work base <dir> claude-desktop`
+COPY scripts/install-claude-desktop.sh /opt/build/
+RUN bash /opt/build/install-claude-desktop.sh && rm -rf /opt/build
+
+# GUI apps launchable to the host under run-sandboxed --gui: Meld, Lite XL, plus the
+# `chrome` and `gui-apps` quick commands (see `gui-apps` inside the container)
+COPY scripts/install-desktop-apps.sh /opt/build/
+RUN bash /opt/build/install-desktop-apps.sh && rm -rf /opt/build
+
+# Terminal: git-aware prompt with container title + per-shell bash history (hist-* helpers),
+# plus the `tools` command + first-shell banner (welcome.sh is sourced by install-terminal.sh)
+COPY base/bash_history.sh base/terminal_prompt.sh base/welcome.sh /etc/ai-dev/bash/
+COPY scripts/install-terminal.sh /opt/build/
+RUN bash /opt/build/install-terminal.sh && rm -rf /opt/build
+
+# `tools`: per-kit index of available commands, assembled from /etc/ai-dev/tools.d/ sections
+# (each kit appends its own). /etc/ai-dev/kit names the image in the banner title.
+COPY base/tools /usr/local/bin/tools
+COPY base/tools.d/10-base.txt /etc/ai-dev/tools.d/
+RUN chmod +x /usr/local/bin/tools && echo base > /etc/ai-dev/kit
+
+# WezTerm — GPU terminal, launchable to the host desktop under run-sandboxed --gui
+COPY scripts/install-wezterm.sh /opt/build/
+RUN bash /opt/build/install-wezterm.sh && rm -rf /opt/build
+
+# rtk — CLI proxy that compresses command output before the AI CLIs read it
+COPY scripts/install-rtk.sh /opt/build/
+RUN bash /opt/build/install-rtk.sh && rm -rf /opt/build
+
+# agent-browser — browser-automation CLI for AI agents; drives the bundled Google Chrome
+COPY scripts/install-agent-browser.sh /opt/build/
+RUN bash /opt/build/install-agent-browser.sh && rm -rf /opt/build
+ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/google-chrome
+
+# Own the whole npm prefix as the container user so self-updates (which rewrite bins too)
+# work without root. Must run AFTER all `npm install -g` layers (they run as root).
+RUN chown -R ubuntu:ubuntu /opt/npm
+
+ENV LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8
+
+LABEL org.opencontainers.image.title="ai-base" \
+      org.opencontainers.image.description="AI dev base: Claude Code, Codex, Gemini CLIs, Claude Desktop, Chrome, Meld, Lite XL, WezTerm, rtk, agent-browser, Node LTS"

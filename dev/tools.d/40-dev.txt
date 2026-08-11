@@ -1,0 +1,3 @@
+Dev
+  sdk                    SDKMAN — JDK 17/21/25 (default 21)   (sdk use java 25-sys)
+  node / npm / npx       Node LTS   (npx react-native … / npx create-expo-app …)

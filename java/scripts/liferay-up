@@ -1,0 +1,114 @@
+#!/bin/bash
+# Self-healing start for a Liferay environment: liferay-up <staging|live> [--restart] [--timeout N]
+#
+# Safe to run repeatedly. Reports honestly when the environment is already up,
+# fixes missing dependencies (PostgreSQL, role, database), and only claims success
+# once the portal actually serves HTTP. Search is Liferay's embedded sidecar, booted
+# with the portal — nothing to start separately.
+#
+# Wraps liferay-start/liferay-down rather than duplicating them. Siblings are
+# resolved next to this script, never through PATH, so an absolute-path
+# invocation cannot pair this copy with a different copy of liferay-start.
+set -euo pipefail
+BIN_DIR=$(dirname "$(readlink -f "$0")")
+source "$BIN_DIR/liferay-common.sh"
+
+usage() { echo "usage: liferay-up <staging|live> [--restart] [--timeout SECONDS]" >&2; exit 1; }
+
+# 300s is optimistic for a DXP first boot (schema creation + sidecar unpack +
+# module install runs 3-8 min). The wait returns the moment the portal serves and
+# fails fast if the JVM exits, so a generous ceiling costs nothing.
+ENV_NAME=""; RESTART=0; TIMEOUT=900
+while (($#)); do
+    case "$1" in
+        --restart) RESTART=1 ;;
+        --timeout) shift; TIMEOUT="${1:?--timeout needs a value}" ;;
+        -h|--help) usage ;;
+        -*) echo "unknown option: $1" >&2; usage ;;
+        *) [[ -z "$ENV_NAME" ]] || usage; ENV_NAME="$1" ;;
+    esac
+    shift
+done
+[[ -n "$ENV_NAME" ]] || usage
+env_base "$ENV_NAME" >/dev/null || exit 1
+
+ENV_DIR=$(env_dir "$ENV_NAME")
+PORT=$(env_port "$ENV_NAME")
+URL=$(env_url "$ENV_NAME")
+[[ -d "$ENV_DIR" ]] || { say_err "$ENV_DIR not found; run: liferay-env-create $ENV_NAME"; exit 1; }
+
+# --- 1. already running? (decide before touching anything) -------------------
+mapfile -t PIDS < <(tomcat_pids "$ENV_NAME")
+if ((${#PIDS[@]})); then
+    # --restart is checked before health: a healthy portal is the normal case in
+    # which you want to restart (to pick up a config change), so treating
+    # "already serving" as "nothing to do" would make the flag a no-op exactly
+    # when it is most useful.
+    if ((RESTART)); then
+        say_run "restarting Liferay '$ENV_NAME' (pid ${PIDS[*]})"
+        "$BIN_DIR/liferay-down" "$ENV_NAME"
+    elif portal_serving "$ENV_NAME"; then
+        say_ok "Liferay '$ENV_NAME' is already running"
+        printf '  %s  (pid %s, up %s)\n' "$URL" "${PIDS[0]}" "$(pid_uptime "${PIDS[0]}")"
+        ((${#PIDS[@]} > 1)) && say_warn "${#PIDS[@]} Tomcat processes for this env: ${PIDS[*]} — consider --restart"
+        echo "  Nothing to do."
+        exit 0
+    else
+        say_warn "Liferay '$ENV_NAME' process is running (pid ${PIDS[*]}) but the portal is NOT serving on $PORT."
+        echo "  Last errors:"
+        log_excerpt "$ENV_NAME" 6
+        log_paths "$ENV_NAME"
+        echo "  Fix and restart with: $0 $ENV_NAME --restart"
+        exit 1
+    fi
+elif ((RESTART)); then
+    say_ok "Liferay '$ENV_NAME' is not running — starting fresh"
+fi
+
+# --- 2. dependencies ---------------------------------------------------------
+if pg_up; then
+    say_ok "PostgreSQL running"
+else
+    say_run "PostgreSQL is down — starting"
+    PG_OUT=$(pg-start 2>&1) || { say_err "pg-start failed"; sed 's/^/    /' <<<"$PG_OUT" >&2; exit 1; }
+    # pg_ctl start blocks until the server accepts connections, so no extra wait.
+    pg_up || { say_err "PostgreSQL still not accepting connections"; exit 1; }
+    say_ok "PostgreSQL started"
+fi
+
+# Search needs no dependency step: Liferay launches its embedded Elasticsearch
+# sidecar as part of portal startup (liferay-start reports its config via report_search).
+
+# A leftover shutdown port with no Tomcat of ours behind it means something else
+# holds it — Tomcat would die with BindException, so say so rather than guess.
+SHUTDOWN_PORT=$(env_shutdown_port "$ENV_NAME")
+if port_in_use "$SHUTDOWN_PORT"; then
+    say_warn "port $SHUTDOWN_PORT is held by a process that is not a Tomcat for '$ENV_NAME'"
+    say_warn "startup may fail with 'Address already in use'"
+fi
+
+# --- 3. database (the original root cause) -----------------------------------
+# liferay-env-create only provisions if PostgreSQL happened to be running at
+# creation time, and merely prints a NOTE otherwise. Repair it on every start.
+if load_db_config "$ENV_NAME"; then
+    db_ensure_role
+    db_ensure_database
+
+    # Prove the credentials Liferay will use actually connect, before booting.
+    # Provisioning that isn't verified is the same class of bug as starting that
+    # isn't verified.
+    if ! db_connect_ok; then
+        say_err "cannot connect to $DB_NAME as '$DB_USER' — Liferay would fail the same way"
+        db_connect_error | sed 's/^/    /' >&2
+        exit 1
+    fi
+else
+    say_warn "no local PostgreSQL JDBC URL in portal-ext.properties — skipping database checks"
+fi
+
+# --- 4. launch and verify ----------------------------------------------------
+# liferay-start re-runs these checks and reports the database and search lines,
+# so nothing is echoed here twice; by this point every check it repeats passes.
+# liferay-start does its own preflight, launch and wait_portal, so this is a
+# straight delegation: its exit code already means "the portal is serving".
+exec "$BIN_DIR/liferay-start" "$ENV_NAME" --timeout "$TIMEOUT"

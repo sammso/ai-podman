@@ -1,0 +1,23 @@
+#!/bin/bash
+# Print the tools available in this container: a per-kit index assembled from the
+# section files in /etc/ai-dev/tools.d/ (base first, then the kit's own). Shown once
+# on the first interactive shell (see /etc/ai-dev/bash/welcome.sh); run `tools` to
+# reprint it any time.
+set -uo pipefail
+
+kit="${AI_KIT:-$(cat /etc/ai-dev/kit 2>/dev/null || echo container)}"
+
+# Bold only on a terminal, so `tools | less` / piping stays clean.
+if [[ -t 1 ]]; then b=$'\e[1m'; d=$'\e[0m'; else b=''; d=''; fi
+
+printf '\n%sai-%s%s — tools in this container   (run %stools%s to show this again)\n' \
+    "$b" "$kit" "$d" "$b" "$d"
+
+shopt -s nullglob
+for f in /etc/ai-dev/tools.d/*; do
+    printf '\n'
+    cat -- "$f"
+done
+
+printf '\nMore:  %sgui-apps%s (GUI apps)   %shist-ls%s (shell history)   see the kit README\n\n' \
+    "$b" "$d" "$b" "$d"

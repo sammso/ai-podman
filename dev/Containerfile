@@ -1,0 +1,14 @@
+# localhost/ai-dev — general dev kit on top of ai-base.
+# Temurin JDK 17/21/25 (default 21) via SDKMAN; Node/NPM LTS inherited from ai-base.
+FROM localhost/ai-base:latest
+
+COPY scripts/install-jdks.sh /opt/build/
+
+RUN bash /opt/build/install-jdks.sh 21 && rm -rf /opt/build
+
+# `tools` banner: append the dev section and name the image
+COPY dev/tools.d/40-dev.txt /etc/ai-dev/tools.d/
+RUN echo dev > /etc/ai-dev/kit
+
+LABEL org.opencontainers.image.title="ai-dev" \
+      org.opencontainers.image.description="Dev kit: JDK 17/21/25, Node/NPM LTS"

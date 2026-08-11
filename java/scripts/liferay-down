@@ -1,0 +1,61 @@
+#!/bin/bash
+# Reliable stop for a Liferay environment: liferay-down <staging|live>
+#
+# liferay-stop calls shutdown.sh and returns immediately without waiting or
+# verifying, which is how dead JVMs end up holding the shutdown port and
+# breaking the next start. This waits, then force-kills survivors.
+#
+# Exits 0 whether or not anything was running, so it is safe to chain.
+set -euo pipefail
+source "$(dirname "$(readlink -f "$0")")/liferay-common.sh"
+
+ENV_NAME="${1:?usage: liferay-down <staging|live>}"
+env_base "$ENV_NAME" >/dev/null || exit 1
+
+mapfile -t PIDS < <(tomcat_pids "$ENV_NAME")
+if ((${#PIDS[@]} == 0)); then
+    say_ok "Liferay '$ENV_NAME' is not running — nothing to stop"
+    exit 0
+fi
+
+say_run "stopping Liferay '$ENV_NAME' (pid ${PIDS[*]})"
+"$(dirname "$(readlink -f "$0")")/liferay-stop" "$ENV_NAME" >/dev/null 2>&1 || true
+
+wait_gone() {
+    local deadline=$((SECONDS + $1)) remaining
+    while ((SECONDS < deadline)); do
+        mapfile -t remaining < <(tomcat_pids "$ENV_NAME")
+        ((${#remaining[@]} == 0)) && return 0
+        sleep 2
+    done
+    return 1
+}
+
+if wait_gone 60; then
+    say_ok "Liferay '$ENV_NAME' stopped"
+    exit 0
+fi
+
+# shutdown.sh only reaches the instance that owns the shutdown port; duplicates
+# started while that port was taken have to be signalled directly.
+mapfile -t PIDS < <(tomcat_pids "$ENV_NAME")
+say_warn "did not exit cleanly — terminating pid ${PIDS[*]}"
+for pid in "${PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
+
+if wait_gone 20; then
+    say_ok "Liferay '$ENV_NAME' stopped"
+    exit 0
+fi
+
+mapfile -t PIDS < <(tomcat_pids "$ENV_NAME")
+say_warn "forcing kill -9 on pid ${PIDS[*]}"
+for pid in "${PIDS[@]}"; do kill -9 "$pid" 2>/dev/null || true; done
+
+if wait_gone 20; then
+    say_ok "Liferay '$ENV_NAME' stopped"
+    exit 0
+fi
+
+mapfile -t PIDS < <(tomcat_pids "$ENV_NAME")
+say_err "could not stop pid ${PIDS[*]}"
+exit 1

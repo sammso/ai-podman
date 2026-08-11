@@ -1,0 +1,6 @@
+Android
+  studio         Android Studio   (needs --gui --x11)
+  adb            Android Debug Bridge
+  sdkmanager     Android SDK manager
+  emulator       Android emulator   (needs --kvm)
+  flutter        Flutter SDK   (flutter doctor)

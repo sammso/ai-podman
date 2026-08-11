@@ -1,0 +1,15 @@
+Java
+  sdk                              SDKMAN   (sdk use java 21-sys)
+  gradle   mvn                     build tools
+  blade                            Liferay Blade CLI
+  idea                             IntelliJ IDEA Ultimate   (needs --gui --x11)
+
+Databases
+  pg-start / pg-stop               PostgreSQL (:5432)
+  minio-start / minio-stop         MinIO (S3 :9000 / console :9001)
+  pg-sql / sqlline                 JDBC SQL shell
+
+Liferay
+  liferay-download                 fetch a bundle .tar.gz (prints its path)
+  liferay-env-create <t> [env]     create staging/live from a tarball
+  liferay-up / -down / -status     run / stop / inspect a Liferay environment

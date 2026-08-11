@@ -1,0 +1,12 @@
+AI coding CLIs
+  claude          Claude Code
+  codex           OpenAI Codex CLI
+  gemini          Gemini CLI
+  rtk             compress command output before an AI reads it   (rtk init -g)
+  agent-browser   browser automation for agents (drives the bundled Chrome)
+
+GUI apps          run the container with --gui;  gui-apps  lists them
+  chrome   claude-desktop   meld   lite-xl   wezterm
+
+Shell
+  hist-ls / hist-grep / hist-fzf    per-shell command history

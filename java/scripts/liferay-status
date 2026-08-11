@@ -1,0 +1,59 @@
+#!/bin/bash
+# Health report for the Liferay environments: liferay-status [staging|live]
+# Read-only — starts, stops and changes nothing. Defaults to both environments.
+set -euo pipefail
+source "$(dirname "$(readlink -f "$0")")/liferay-common.sh"
+
+if (($#)); then
+    env_base "$1" >/dev/null || exit 1
+    ENVS=("$1")
+else
+    ENVS=(staging live)
+fi
+
+# --- shared services ---------------------------------------------------------
+echo "Services"
+if pg_up; then say_ok "PostgreSQL  localhost:5432"; else say_warn "PostgreSQL  down  (start with: pg-start)"; fi
+echo "  (search: each env runs its own embedded Elasticsearch sidecar — see per-env below)"
+
+for env_name in "${ENVS[@]}"; do
+    ENV_DIR=$(env_dir "$env_name")
+    echo
+    echo "Environment '$env_name'"
+    if [[ ! -d "$ENV_DIR" ]]; then
+        say_warn "not installed  ($ENV_DIR)  — create with: liferay-env-create $env_name"
+        continue
+    fi
+
+    mapfile -t PIDS < <(tomcat_pids "$env_name")
+    CODE=$(portal_code "$env_name")
+    URL=$(env_url "$env_name")
+
+    if ((${#PIDS[@]} == 0)); then
+        say_warn "stopped  (start with: liferay-up $env_name)"
+    elif portal_serving "$env_name"; then
+        say_ok "serving  $URL  (HTTP $CODE, pid ${PIDS[0]}, up $(pid_uptime "${PIDS[0]}"))"
+        ((${#PIDS[@]} > 1)) && say_warn "${#PIDS[@]} Tomcat processes for this env: ${PIDS[*]}"
+    else
+        say_err "process alive (pid ${PIDS[*]}) but portal NOT serving on $(env_port "$env_name") (HTTP $CODE)"
+        log_excerpt "$env_name" 4
+    fi
+
+    # Database, reported only when PostgreSQL is reachable.
+    if load_db_config "$env_name"; then
+        if ! pg_up; then
+            say_warn "database  $DB_NAME  (unknown — PostgreSQL is down)"
+        elif ! db_role_exists; then
+            say_err "role '$DB_USER' does not exist  — liferay-up $env_name will create it"
+        elif ! db_exists; then
+            say_err "database '$DB_NAME' does not exist  — liferay-up $env_name will create it"
+        elif db_connect_ok; then
+            say_ok "database  $DB_NAME  reachable as '$DB_USER'"
+        else
+            say_err "database  $DB_NAME  exists but '$DB_USER' cannot connect"
+        fi
+    fi
+
+    # Search: the embedded sidecar's config (pinned port vs inert/defaulting to 9201).
+    report_search "$env_name"
+done
