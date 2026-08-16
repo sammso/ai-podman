@@ -15,7 +15,7 @@ set -euo pipefail
 SELF_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 RUNNER="$SELF_DIR/run-sandboxed.sh"
 APPS_DIR="$HOME/.local/share/applications"
-KITS=(base java dev android)
+KITS=(base java dev android node)
 
 die() { echo "error: $*" >&2; exit 1; }
 is_kit() { case " ${KITS[*]} " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }

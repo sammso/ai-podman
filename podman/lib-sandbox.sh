@@ -2,7 +2,7 @@
 # Shared helpers for the sandbox runners (run-sandboxed.sh = one-shot, connect-sandboxed.sh
 # = named/persistent, stop-sandboxed.sh). Source after `set -euo pipefail`.
 
-KITS=(base java dev android)
+KITS=(base java dev android node)
 SANDBOX_PREFIX=aidev-
 _LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 

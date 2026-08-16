@@ -3,7 +3,7 @@
 #
 # Usage:
 #   ./build.sh                 build everything (base first)
-#   ./build.sh base|java|dev|android   build one target (base is NOT auto-rebuilt)
+#   ./build.sh base|java|dev|android|node   build one target (base is NOT auto-rebuilt)
 #   ./build.sh --no-cache [target]            pass --no-cache to podman build
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -17,7 +17,7 @@ fi
 if [[ $# -gt 0 ]]; then
     TARGETS=("$@")
 else
-    TARGETS=(base java dev android)
+    TARGETS=(base java dev android node)
 fi
 
 build_one() {
@@ -31,8 +31,8 @@ build_one() {
 
 for kit in "${TARGETS[@]}"; do
     case "$kit" in
-        base|java|dev|android) build_one "$kit" ;;
-        *) echo "Unknown target: $kit (expected base|java|dev|android)" >&2; exit 1 ;;
+        base|java|dev|android|node) build_one "$kit" ;;
+        *) echo "Unknown target: $kit (expected base|java|dev|android|node)" >&2; exit 1 ;;
     esac
 done
 

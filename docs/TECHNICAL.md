@@ -18,7 +18,8 @@ ubuntu:24.04
             ├── localhost/ai-java       + JDK 17/21/25, Gradle, Maven, Blade, IntelliJ,
             │                             PostgreSQL, MinIO, SQLLine, Liferay stack
             ├── localhost/ai-dev        + JDK 17/21/25 (default 21)
-            └── localhost/ai-android    + Android Studio, Android SDK + emulator, Flutter
+            ├── localhost/ai-android    + Android Studio, Android SDK + emulator, Flutter
+            └── localhost/ai-node       + fnm (switchable Node), VS Code, WebStorm
 ```
 
 Each `FROM localhost/ai-base:latest`; base is `FROM ubuntu:24.04`. Because the kits share a

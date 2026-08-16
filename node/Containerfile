@@ -1,0 +1,27 @@
+# localhost/ai-node — Node.js development on top of ai-base.
+# Switchable Node versions via fnm, Visual Studio Code (official), and JetBrains WebStorm.
+# Both IDEs are GUI apps (VS Code = Electron, WebStorm = JBR/AWT) — run under --gui --x11.
+FROM localhost/ai-base:latest
+
+# fnm's Node version store lives here — system-wide, outside $HOME so a --persist-work HOME of
+# /work never shadows it (same rule as SDKMAN under /opt).
+ENV FNM_DIR=/opt/fnm
+
+# fnm + a couple of LTS Node versions (default 22); switch with `fnm use <v>`
+COPY scripts/install-node-versions.sh /opt/build/
+RUN bash /opt/build/install-node-versions.sh && rm -rf /opt/build
+
+# Visual Studio Code (official Microsoft build) — `code` launches to the host desktop under --gui
+COPY scripts/install-vscode.sh /opt/build/
+RUN bash /opt/build/install-vscode.sh && rm -rf /opt/build
+
+# JetBrains WebStorm — `webstorm` launches to the host desktop (run under --gui --x11)
+COPY scripts/install-webstorm.sh /opt/build/
+RUN bash /opt/build/install-webstorm.sh && rm -rf /opt/build
+
+# `tools` banner: append the node section and name the image
+COPY node/tools.d/40-node.txt /etc/ai-dev/tools.d/
+RUN echo node > /etc/ai-dev/kit
+
+LABEL org.opencontainers.image.title="ai-node" \
+      org.opencontainers.image.description="Node.js dev: fnm (switchable Node 20/22), Visual Studio Code, JetBrains WebStorm"

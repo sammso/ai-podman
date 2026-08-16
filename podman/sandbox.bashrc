@@ -52,7 +52,7 @@ _sb_complete() {
             connect|c|stop|rm|remove)
                 mapfile -t COMPREPLY < <(compgen -W "$(_sb_names)" -- "$cur") ;;
             run)
-                mapfile -t COMPREPLY < <(compgen -W "base java dev android --gui --persist-work --host-network" -- "$cur") ;;
+                mapfile -t COMPREPLY < <(compgen -W "base java dev android node --gui --persist-work --host-network" -- "$cur") ;;
             *) COMPREPLY=() ;;
         esac
     fi

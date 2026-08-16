@@ -13,6 +13,7 @@ Chrome, Node 22 LTS and CLI essentials. Three dev-kit images build on it:
 | [`localhost/ai-java`](java/README.md) | IntelliJ IDEA Ultimate, JDK 17/21/25, Gradle, Maven, PostgreSQL, MinIO, SQLLine — plus a full Liferay stack |
 | [`localhost/ai-dev`](dev/README.md) | Temurin JDK 17/21/25 (default 21); Node/NPM LTS from base |
 | [`localhost/ai-android`](android/README.md) | Android Studio, JDK 17 default, Android SDK + emulator, Flutter, React Native-ready |
+| [`localhost/ai-node`](node/README.md) | Node.js: fnm (switchable Node 20/22), Visual Studio Code, JetBrains WebStorm |
 
 How the images inherit from one another, the run/containment model, persistence, named
 sandboxes, GUI plumbing and AI-CLI auth are all in **[docs/TECHNICAL.md](docs/TECHNICAL.md)**.
