@@ -163,6 +163,9 @@ tunnel.servlet.hosts.allowed=127.0.0.1,SERVER_IP
 setup.wizard.enabled=false
 terms.of.use.required=false
 users.reminder.queries.enabled=false
+
+# Accept the reverse-proxy hostnames (staging.local / live.local / liferay.local; see proxy-start)
+virtual.hosts.valid.hosts=*
 PROPS
 # Contains the DB password; the tunnel secret file is already 600.
 chmod 600 "$ENV_DIR/portal-ext.properties"

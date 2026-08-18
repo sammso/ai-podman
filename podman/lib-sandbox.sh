@@ -127,6 +127,12 @@ sandbox_build_args() {
     read -ra _aliases <<<"$host_aliases"
     for _h in "${_aliases[@]}"; do SANDBOX_ARGS+=(--add-host "$_h:127.0.0.1"); done
 
+    # Let the java kit's reverse proxy (proxy-start) bind :80 as the unprivileged container user.
+    # This is a namespaced sysctl, so it needs the container's own netns — skip it under
+    # --host-network (podman can't set it there, and :80 would be the host's privileged port).
+    [[ "$KIT" == java && $HOST_NET -ne 1 ]] \
+        && SANDBOX_ARGS+=(--sysctl net.ipv4.ip_unprivileged_port_start=0)
+
     [[ $HOST_NET -eq 1 ]] && SANDBOX_ARGS+=(--network host)
     [[ $KVM -eq 1 ]] && SANDBOX_ARGS+=(--device /dev/kvm)
     return 0

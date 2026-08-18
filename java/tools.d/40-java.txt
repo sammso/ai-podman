@@ -13,3 +13,6 @@ Liferay
   liferay-download                 fetch a bundle .tar.gz (prints its path)
   liferay-env-create <t> [env]     create staging/live from a tarball
   liferay-up / -down / -status     run / stop / inspect a Liferay environment
+  proxy-start / proxy-stop         :80 proxy — staging.local/liferay.local -> staging,
+                                   live.local -> live  (run java without --host-network)
+  stop-all                         stop every running service (Liferay, proxy, MinIO, PostgreSQL)

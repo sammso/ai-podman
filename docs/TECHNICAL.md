@@ -79,7 +79,9 @@ podman/run-sandboxed.sh --persist-work --host-network java ~/proj/portal
 (added in `sandbox_build_args`). The **java** kit ships `staging.local`, `live.local` and
 `liferay.local` (separate cookie domains for Liferay staging vs live — see
 [java/README.md](../java/README.md#liferay-services-and-remote-publishing)). Override the set for
-any kit with `AI_HOST_ALIASES="a.local b.local"`, or `AI_HOST_ALIASES=""` to disable.
+any kit with `AI_HOST_ALIASES="a.local b.local"`, or `AI_HOST_ALIASES=""` to disable. The java kit
+also gets `--sysctl net.ipv4.ip_unprivileged_port_start=0` (unless `--host-network`) so its Caddy
+`proxy-start` can bind port 80 as the unprivileged user.
 
 ### Persistence: `--persist-work`
 

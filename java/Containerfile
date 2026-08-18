@@ -37,16 +37,22 @@ RUN bash /opt/build/install-sqlline.sh && rm -rf /opt/build
 COPY scripts/install-intellij.sh /opt/build/
 RUN bash /opt/build/install-intellij.sh && rm -rf /opt/build
 
+# Caddy reverse proxy (proxy-start/proxy-stop): staging.local/liferay.local -> :20080,
+# live.local -> :21080 on port 80 (run java WITHOUT --host-network so it can bind :80)
+COPY scripts/install-liferay-proxy.sh /opt/build/
+RUN bash /opt/build/install-liferay-proxy.sh && rm -rf /opt/build
+
 # Liferay lifecycle commands (the canonical set — env-create/start/stop plus self-healing
 # up/down/status). This COPY runs after install-liferay-envs.sh, so these override any
 # same-named scripts it generated; that generator now only emits liferay-download + the
 # bundle resolver. liferay-common.sh is sourced by the others from the same dir (non-exec).
 COPY java/scripts/liferay-common.sh java/scripts/liferay-env-create \
      java/scripts/liferay-start java/scripts/liferay-stop java/scripts/liferay-up \
-     java/scripts/liferay-down java/scripts/liferay-status /usr/local/bin/
+     java/scripts/liferay-down java/scripts/liferay-status java/scripts/stop-all /usr/local/bin/
 RUN chmod +x /usr/local/bin/liferay-env-create /usr/local/bin/liferay-start \
              /usr/local/bin/liferay-stop /usr/local/bin/liferay-up \
-             /usr/local/bin/liferay-down /usr/local/bin/liferay-status
+             /usr/local/bin/liferay-down /usr/local/bin/liferay-status \
+             /usr/local/bin/stop-all
 
 # `tools` banner: append the java section and name the image
 COPY java/tools.d/40-java.txt /etc/ai-dev/tools.d/

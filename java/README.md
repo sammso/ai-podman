@@ -61,6 +61,28 @@ matching name — `staging.local:20080`, `live.local:21080` — which gives stag
 site* to one of them you'd also set `virtual.hosts.valid.hosts` in the portal config, but plain
 access + cookie separation needs nothing extra.
 
+**Reverse proxy (port 80).** `proxy-start` runs a small Caddy proxy that maps those hostnames to
+the running envs on **:80**, so you can browse them portless:
+
+| URL | → env |
+|-----|-------|
+| `http://staging.local` / `http://liferay.local` | staging (`localhost:20080`) |
+| `http://live.local` | live (`localhost:21080`) |
+
+```bash
+proxy-start     # start the :80 proxy   |   proxy-stop to stop it
+```
+
+Because binding `:80` needs the container's **own** network namespace, run the java sandbox
+**without `--host-network`** (the default) and browse from the **in-container** Chrome/WebStorm/
+IDEA — `run-sandboxed.sh` gives the java kit the `net.ipv4.ip_unprivileged_port_start=0` sysctl so
+the unprivileged user can bind `:80` (skipped under `--host-network`, where `proxy-start` will
+tell you to drop that flag). Envs created by `liferay-env-create` set `virtual.hosts.valid.hosts=*`
+so Liferay accepts the proxied Host; **existing** envs need that line added to `portal-ext.properties`
+(or recreate them). If you want Liferay's own absolute redirects to drop the `:20080` port too, add
+a Tomcat `RemoteIpValve` (or `web.server.http.port=80`) — optional; plain navigation works without
+it.
+
 Liferay connects as DB user **`liferay`** / password **`admin`** (each `lportal_<env>` DB is
 owned by that role). Override with `LIFERAY_DB_USER` / `LIFERAY_DB_PASSWORD` before
 `liferay-env-create`. Local PostgreSQL is trust-auth, so the password isn't enforced for
@@ -93,6 +115,10 @@ needs no separate step — Liferay boots its embedded Elasticsearch sidecar itse
 <env>` stops it reliably; `liferay-status [env]` is a read-only health report. These wrap the
 low-level `liferay-start`/`liferay-stop` (which just call Tomcat's start/shutdown), and
 `pg-start` still works standalone.
+
+**`stop-all`** stops every running service in one go — Liferay staging/live, the Caddy proxy,
+MinIO, then PostgreSQL last (it's what the Liferay JVMs use). It's idempotent: anything already
+stopped is just reported.
 
 **Download vs install.** `liferay-download [dxp|ce] [release]` is the only step that hits the
 repository — it caches the bundle in `~/liferay/downloads` and prints the tarball path.

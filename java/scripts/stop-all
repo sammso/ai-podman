@@ -1,0 +1,14 @@
+#!/bin/bash
+# Stop every java-kit service that is running: Liferay staging/live, the Caddy proxy, MinIO,
+# and PostgreSQL (last — the Liferay JVMs use it). Idempotent: already-stopped services are
+# just reported, never an error.
+set -uo pipefail
+source "$(dirname "$(readlink -f "$0")")/liferay-common.sh"
+
+echo "Stopping all java services ..."
+for env in staging live; do
+    liferay-down "$env" || true          # reliable; prints its own status, exits 0 either way
+done
+proxy-stop || true                        # graceful; prints its own status
+minio-stop || true                        # graceful; prints its own status
+if pg_up; then pg-stop || true; else say_ok "PostgreSQL is not running"; fi
