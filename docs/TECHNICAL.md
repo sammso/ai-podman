@@ -75,6 +75,12 @@ podman/run-sandboxed.sh --persist-work --host-network java ~/proj/portal
 
 `run-sandboxed.sh` is one-shot (`--rm`) — good for a quick command or a menu launcher.
 
+**Hostname aliases.** A kit may map friendly names to `127.0.0.1` via podman `--add-host`
+(added in `sandbox_build_args`). The **java** kit ships `staging.local`, `live.local` and
+`liferay.local` (separate cookie domains for Liferay staging vs live — see
+[java/README.md](../java/README.md#liferay-services-and-remote-publishing)). Override the set for
+any kit with `AI_HOST_ALIASES="a.local b.local"`, or `AI_HOST_ALIASES=""` to disable.
+
 ### Persistence: `--persist-work`
 
 Without a persist flag the container home is ephemeral — maximum containment, ideal for

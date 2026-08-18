@@ -47,8 +47,10 @@ sandbox_list() {
 # image (mounts, env, --gui plumbing, persistence, network, devices). Inputs are globals:
 #   KIT PROJECT_DIR GUI X11 PERSIST_WORK HOST_NET HOST_DBUS KVM DRY_RUN
 #   optional AI_KIT_NAME (prompt/title name; defaults to KIT).
+#   optional AI_HOST_ALIASES (override the per-kit /etc/hosts aliases; "" disables).
 sandbox_build_args() {
-    local uid gid container_user=ubuntu home_target=""
+    local uid gid container_user=ubuntu home_target="" host_aliases _h
+    local -a _aliases
     uid=$(id -u); gid=$(id -g)
     local env_name="${AI_KIT_NAME:-$KIT}"
 
@@ -108,6 +110,22 @@ sandbox_build_args() {
     if [[ $X11 -eq 1 ]]; then
         SANDBOX_ARGS+=(-e "DISPLAY=${DISPLAY:-:0}" -v /tmp/.X11-unix:/tmp/.X11-unix)
     fi
+
+    # Hostname aliases -> 127.0.0.1. Podman regenerates /etc/hosts and the container is
+    # unprivileged, so --add-host (applied at creation) is the only way to add them. The java kit
+    # ships staging.local/live.local/liferay.local so Liferay staging and live get separate cookie
+    # domains (reach them by port, e.g. staging.local:20080). Override with
+    # AI_HOST_ALIASES="a.local b.local", or AI_HOST_ALIASES="" to disable.
+    if [[ -n "${AI_HOST_ALIASES+x}" ]]; then
+        host_aliases="$AI_HOST_ALIASES"
+    else
+        case "$KIT" in
+            java) host_aliases="staging.local live.local liferay.local" ;;
+            *)    host_aliases="" ;;
+        esac
+    fi
+    read -ra _aliases <<<"$host_aliases"
+    for _h in "${_aliases[@]}"; do SANDBOX_ARGS+=(--add-host "$_h:127.0.0.1"); done
 
     [[ $HOST_NET -eq 1 ]] && SANDBOX_ARGS+=(--network host)
     [[ $KVM -eq 1 ]] && SANDBOX_ARGS+=(--device /dev/kvm)

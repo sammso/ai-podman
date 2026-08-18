@@ -52,6 +52,15 @@ pg-sql lportal  # SQLLine (JDBC) shell on the local DB
 
 ## Liferay: services and remote publishing
 
+**Hostname aliases.** A java sandbox resolves `staging.local`, `live.local` and `liferay.local`
+to `127.0.0.1` (added via podman `--add-host`). Reach an environment by its port under the
+matching name — `staging.local:20080`, `live.local:21080` — which gives staging and live
+**separate cookie domains**, so you can stay logged into both portals at once without their
+`localhost` sessions colliding. Override the set with `AI_HOST_ALIASES="a.local b.local"` (or
+`AI_HOST_ALIASES=""` to disable). Note: these just make the names resolve; to *map a Liferay
+site* to one of them you'd also set `virtual.hosts.valid.hosts` in the portal config, but plain
+access + cookie separation needs nothing extra.
+
 Liferay connects as DB user **`liferay`** / password **`admin`** (each `lportal_<env>` DB is
 owned by that role). Override with `LIFERAY_DB_USER` / `LIFERAY_DB_PASSWORD` before
 `liferay-env-create`. Local PostgreSQL is trust-auth, so the password isn't enforced for
