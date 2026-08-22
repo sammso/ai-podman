@@ -48,6 +48,10 @@ RUN bash /opt/build/install-wezterm.sh && rm -rf /opt/build
 COPY scripts/install-rtk.sh /opt/build/
 RUN bash /opt/build/install-rtk.sh && rm -rf /opt/build
 
+# herdr — background runtime that keeps coding agents running persistently (herdr.dev)
+COPY scripts/install-herdr.sh /opt/build/
+RUN bash /opt/build/install-herdr.sh && rm -rf /opt/build
+
 # agent-browser — browser-automation CLI for AI agents; drives the bundled Google Chrome
 COPY scripts/install-agent-browser.sh /opt/build/
 RUN bash /opt/build/install-agent-browser.sh && rm -rf /opt/build

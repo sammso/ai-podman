@@ -4,6 +4,7 @@ AI coding CLIs
   gemini          Gemini CLI
   rtk             compress command output before an AI reads it   (rtk init -g)
   agent-browser   browser automation for agents (drives the bundled Chrome)
+  herdr           keep coding agents running in the background (herdr.dev)
 
 GUI apps          run the container with --gui;  gui-apps  lists them
   chrome   claude-desktop   meld   lite-xl   wezterm

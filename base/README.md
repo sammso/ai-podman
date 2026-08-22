@@ -39,6 +39,13 @@ tokens). The binary is installed; enable its hook per tool with `rtk init -g` (C
 (`AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/google-chrome`) — no extra browser download. Headless by
 default; run the container with `--gui` for a visible window.
 
+### herdr
+
+`herdr` ([herdr.dev](https://herdr.dev)) is a background runtime that keeps coding agents (Claude
+Code, Codex, …) running continuously — persistent sessions, status tracking, and multi-agent
+coordination across workspaces. The single binary is installed system-wide; run `herdr` to start
+the server / manage agents.
+
 ### Node & CLI essentials
 
 Node 22 LTS + npm, git, and common build tools come from base and are available in every kit
