@@ -1,0 +1,47 @@
+#!/bin/bash
+# Resolve this pod's identity colour + app-id for GUI launchers, so container windows are
+# recognizable on the host desktop. Output forms:
+#   ai-env-color            R,G,B decimal   (for: chrome --set-user-color)
+#   ai-env-color --hex      #rrggbb
+#   ai-env-color --appid    aidev-<env>     (WM_CLASS/app_id for compositor window rules)
+#   ai-env-color --name     <env>
+#
+# Env/pod name (same source as the prompt's podman-env): AI_KIT -> ~/.podman_env -> "podman".
+# Colour, first match wins: AI_ENV_COLOR env -> ~/.podman_color (first line) -> a stable palette
+# entry derived from the name (so every pod gets its own recognizable colour). Accepts
+# "#rrggbb", "rrggbb", or "r,g,b".
+set -uo pipefail
+
+name="${AI_KIT:-}"
+if [[ -z "$name" && -r "$HOME/.podman_env" ]]; then read -r name < "$HOME/.podman_env" || true; fi
+name="${name:-podman}"
+
+raw=""
+if [[ -n "${AI_ENV_COLOR:-}" ]]; then
+    raw="$AI_ENV_COLOR"
+elif [[ -r "$HOME/.podman_color" ]]; then
+    read -r raw < "$HOME/.podman_color" || true
+fi
+
+if [[ -z "$raw" ]]; then
+    # Distinct, readable palette; index is a stable checksum of the name.
+    palette=(e6194b 3cb44b 4363d8 f58231 911eb4 42d4f4 f032e6 469990 \
+             9a6324 800000 808000 000075 bfef45 fabed4 e6beff 46d2f4)
+    idx=$(( $(cksum <<<"$name" | cut -d' ' -f1) % ${#palette[@]} ))
+    raw="${palette[$idx]}"
+fi
+
+# Normalize to decimal r/g/b.
+if [[ "$raw" == *,* ]]; then
+    IFS=',' read -r r g b <<<"$raw"
+else
+    hex="${raw#\#}"
+    r=$((16#${hex:0:2})); g=$((16#${hex:2:2})); b=$((16#${hex:4:2}))
+fi
+
+case "${1:-}" in
+    --hex)   printf '#%02x%02x%02x\n' "$r" "$g" "$b" ;;
+    --appid) printf 'aidev-%s\n' "$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '-')" ;;
+    --name)  printf '%s\n' "$name" ;;
+    *)       printf '%d,%d,%d\n' "$r" "$g" "$b" ;;
+esac

@@ -23,6 +23,11 @@ RUN bash /opt/build/install-base-utils.sh \
 COPY scripts/install-claude-desktop.sh /opt/build/
 RUN bash /opt/build/install-claude-desktop.sh && rm -rf /opt/build
 
+# Per-pod GUI window identity: ai-env-color resolves this sandbox's colour + app_id so the
+# GUI launchers can tint/tag their windows (chrome --set-user-color, --class=aidev-<env>).
+COPY base/ai-env-color /usr/local/bin/ai-env-color
+RUN chmod +x /usr/local/bin/ai-env-color
+
 # GUI apps launchable to the host under run-sandboxed --gui: Meld, Lite XL, plus the
 # `chrome` and `gui-apps` quick commands (see `gui-apps` inside the container)
 COPY scripts/install-desktop-apps.sh /opt/build/

@@ -22,6 +22,7 @@ cat > /usr/local/bin/code <<'EOF'
 #!/bin/bash
 args=()
 [[ -n "${WAYLAND_DISPLAY:-}" ]] && args=(--ozone-platform=wayland)
+appid="$(ai-env-color --appid 2>/dev/null)"; [[ -n "$appid" ]] && args+=(--class="$appid")
 exec run-detached /usr/bin/code "${args[@]}" "$@"
 EOF
 chmod +x /usr/local/bin/code

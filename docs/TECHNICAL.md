@@ -185,6 +185,25 @@ terminal (they don't block it or spam logs — output goes to `$XDG_RUNTIME_DIR/
 `--version`/`--help` still print, and one-shot `run-sandboxed … <app>` / menu launchers stay
 attached so the container lives as long as the app.
 
+### Recognizing container windows by colour
+
+To tell which pod a GUI window came from, each sandbox has an identity **colour** and **app_id**,
+resolved by the `ai-env-color` helper: the colour is derived from the podman-env name (distinct
+per pod, stable across runs) unless you set `AI_ENV_COLOR="#3b82f6"` (or `"r,g,b"`) or put a
+colour on the first line of `~/.podman_color` (persists per project with `--persist-work`).
+
+- **Chrome** self-decorates, so its launcher passes `--set-user-color=<r,g,b>` — the browser
+  **frame/title is tinted** with the pod colour on any desktop, no compositor setup needed.
+- The Chromium/Electron launchers (`chrome`, `claude-desktop`, `code`) also stamp a per-pod
+  **app_id** `aidev-<env>` via `--class`, so your compositor can border/colour them with a rule,
+  e.g. Hyprland `windowrulev2 = bordercolor rgb(3cb44b), class:^(aidev-.*)$` (Sway:
+  `for_window [app_id="^aidev-"] …`). On KDE/GNOME the app_id makes windows identifiable but
+  per-app titlebar colour isn't a stock rule. Toolkits that don't take a CLI class override on
+  Wayland (JetBrains IDEs, Meld, Lite XL, WezTerm) keep their default app_id.
+
+Check the resolved values inside a container with `ai-env-color`, `ai-env-color --hex`, and
+`ai-env-color --appid`.
+
 ### Fedora menu launchers
 
 To add a launcher to your application menu, generate a `.desktop` entry with `export-app.sh`:

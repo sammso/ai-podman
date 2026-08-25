@@ -8,6 +8,7 @@ AI coding CLIs
 
 GUI apps          run the container with --gui;  gui-apps  lists them
   chrome   claude-desktop   meld   lite-xl   wezterm
+  ai-env-color    per-pod window colour/app_id (chrome frame tint; set AI_ENV_COLOR to override)
 
 Shell
   hist-ls / hist-grep / hist-fzf    per-shell command history

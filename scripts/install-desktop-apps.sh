@@ -47,10 +47,16 @@ EOF
 chmod +x /usr/local/bin/lite-xl /usr/local/bin/meld
 
 # --- chrome: short command, Wayland-native (verified working under --gui) ---
+# --set-user-color tints Chrome's frame with this pod's colour and --class stamps a per-pod
+# app_id, so container windows are recognizable on the host desktop (see ai-env-color;
+# configure the colour with AI_ENV_COLOR or ~/.podman_color).
 cat > /usr/local/bin/chrome <<'EOF'
 #!/bin/bash
 # Google Chrome, Wayland-native (works on the host desktop under run-sandboxed --gui).
-exec run-detached google-chrome --ozone-platform=wayland "$@"
+args=(--ozone-platform=wayland)
+appid="$(ai-env-color --appid 2>/dev/null)"; [[ -n "$appid" ]] && args+=(--class="$appid")
+color="$(ai-env-color 2>/dev/null)";         [[ -n "$color" ]] && args+=(--set-user-color="$color")
+exec run-detached google-chrome "${args[@]}" "$@"
 EOF
 chmod +x /usr/local/bin/chrome
 
@@ -63,6 +69,7 @@ cat > /usr/local/bin/claude-desktop <<'EOF'
 #!/bin/bash
 args=()
 [[ -n "${WAYLAND_DISPLAY:-}" ]] && args=(--ozone-platform=wayland)
+appid="$(ai-env-color --appid 2>/dev/null)"; [[ -n "$appid" ]] && args+=(--class="$appid")
 exec run-detached /usr/bin/claude-desktop "${args[@]}" "$@"
 EOF
 chmod +x /usr/local/bin/claude-desktop
