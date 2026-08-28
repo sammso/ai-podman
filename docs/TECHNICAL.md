@@ -210,13 +210,25 @@ Check the resolved values inside a container with `ai-env-color`, `ai-env-color 
 
 ### Fedora menu launchers
 
-To add a launcher to your application menu, generate a `.desktop` entry with `export-app.sh`:
+`export-app.sh` generates `.desktop` entries that launch a GUI app **into a running named
+sandbox** (`aidev-<name>`, created by `connect-sandboxed.sh` / `sb`) via `podman exec` — it does
+**not** spin up a new container. The app entry attaches only when the sandbox is already running;
+if it's stopped or absent it shows a desktop notification (it never starts or creates anything).
+A companion **"Start <name>"** entry opens a terminal on `connect-sandboxed.sh <name>` to
+create/resume it.
 
 ```bash
-podman/export-app.sh --persist-work base ~/work google-chrome  "Chrome (base)"
-podman/export-app.sh --persist-work base ~/work claude-desktop "Claude Desktop"
-podman/export-app.sh --remove base google-chrome               # undo
+podman/export-app.sh portal chrome "Chrome (portal)"   # app launcher + "Start portal"
+podman/export-app.sh --no-start portal code            # app launcher only
+podman/export-app.sh --remove portal chrome            # remove the app launcher
+podman/export-app.sh --remove portal                   # remove the "Start portal" launcher
 ```
+
+`<app>` is the in-container launcher command (`chrome`, `claude-desktop`, `code`, `idea`,
+`webstorm`, `studio`, `meld`, `lite-xl`, `wezterm`). The exec re-passes the Wayland/X11 env and
+`AI_KIT=<name>` (so the [per-pod colour](#recognizing-container-windows-by-colour) resolves). The
+sandbox must have been created **with GUI** — its `sandbox.conf` profile must include `gui` — for
+exec'd apps to display; a sandbox made without GUI has no Wayland socket to reach.
 
 ## AI CLI auth & updates
 
