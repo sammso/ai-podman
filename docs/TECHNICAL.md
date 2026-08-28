@@ -133,6 +133,7 @@ echo "source $PWD/podman/sandbox.bashrc" >> ~/.bashrc   # run from the repo root
 | `sb stop <name>` | stop (keep) |
 | `sb rm <name>` | stop and remove |
 | `sb run <args…>` | one-shot `run-sandboxed.sh` passthrough |
+| `sb export` | wizard to add a menu launcher for a GUI app in a sandbox (or `sb export <args…>` = `export-app.sh` passthrough) |
 
 `<Tab>` completes subcommands and sandbox names. A name that clashes with a subcommand keyword
 needs `sb connect <name>`.
@@ -216,6 +217,10 @@ sandbox** (`aidev-<name>`, created by `connect-sandboxed.sh` / `sb`) via `podman
 if it's stopped or absent it shows a desktop notification (it never starts or creates anything).
 A companion **"Start <name>"** entry opens a terminal on `connect-sandboxed.sh <name>` to
 create/resume it.
+
+Run `sb export` (with the [shell integration](#named-sandboxes-persistent-reconnectable) sourced)
+for an interactive wizard — pick the sandbox, pick the app (offered from its kit), name it — or
+call `export-app.sh` directly:
 
 ```bash
 podman/export-app.sh portal chrome "Chrome (portal)"   # app launcher + "Start portal"
