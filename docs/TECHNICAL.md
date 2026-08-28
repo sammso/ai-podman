@@ -193,13 +193,17 @@ per pod, stable across runs) unless you set `AI_ENV_COLOR="#3b82f6"` (or `"r,g,b
 colour on the first line of `~/.podman_color` (persists per project with `--persist-work`).
 
 - **Chrome** self-decorates, so its launcher passes `--set-user-color=<r,g,b>` — the browser
-  **frame/title is tinted** with the pod colour on any desktop, no compositor setup needed.
-- The Chromium/Electron launchers (`chrome`, `claude-desktop`, `code`) also stamp a per-pod
-  **app_id** `aidev-<env>` via `--class`, so your compositor can border/colour them with a rule,
-  e.g. Hyprland `windowrulev2 = bordercolor rgb(3cb44b), class:^(aidev-.*)$` (Sway:
-  `for_window [app_id="^aidev-"] …`). On KDE/GNOME the app_id makes windows identifiable but
-  per-app titlebar colour isn't a stock rule. Toolkits that don't take a CLI class override on
-  Wayland (JetBrains IDEs, Meld, Lite XL, WezTerm) keep their default app_id.
+  **frame/title is tinted** with the pod colour on any desktop, no compositor setup needed. This
+  is the reliable path.
+- The Chromium/Electron launchers (`chrome`, `claude-desktop`, `code`) also pass `--class=aidev-<env>`.
+  Recent Chromium/Electron use that as the **Wayland app_id**, so a compositor rule can then
+  border/colour them — e.g. Hyprland `windowrulev2 = bordercolor rgb(3cb44b), class:^(aidev-.*)$`
+  (Sway: `for_window [app_id="^aidev-"] …`). **Behaviour is version-dependent**, though: some
+  builds derive the app_id from the `.desktop` file and ignore `--class`, so confirm the real
+  app_id with your compositor (Hyprland `hyprctl clients`, Sway `swaymsg -t get_tree`) before
+  relying on a rule. On KDE/GNOME the app_id at most makes windows identifiable — per-app titlebar
+  colour isn't a stock rule. Toolkits that don't take a CLI class override on Wayland (JetBrains
+  IDEs, Meld, Lite XL, WezTerm) keep their default app_id.
 
 Check the resolved values inside a container with `ai-env-color`, `ai-env-color --hex`, and
 `ai-env-color --appid`.

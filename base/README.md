@@ -59,9 +59,11 @@ Wayland desktop. From a container shell the short launch commands are on the `PA
 D-Bus, menu launchers) is documented in
 [GUI apps mechanics](../docs/TECHNICAL.md#gui-apps-mechanics).
 
-To tell pods apart, `chrome`'s frame is tinted with a per-pod colour and the Chromium/Electron
-windows carry a per-pod `aidev-<env>` app_id — configure the colour with `AI_ENV_COLOR` /
-`~/.podman_color` (see [Recognizing container windows](../docs/TECHNICAL.md#recognizing-container-windows-by-colour); `ai-env-color` shows the resolved value).
+To tell pods apart, `chrome`'s frame is tinted with a per-pod colour (the reliable path), and the
+Chromium/Electron launchers also try a per-pod `aidev-<env>` app_id for compositor rules
+(version-dependent — see the note). Configure the colour with `AI_ENV_COLOR` / `~/.podman_color`
+(see [Recognizing container windows](../docs/TECHNICAL.md#recognizing-container-windows-by-colour);
+`ai-env-color` shows the resolved value).
 
 | Command | App |
 |---------|-----|

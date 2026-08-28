@@ -8,40 +8,53 @@
 #
 # Env/pod name (same source as the prompt's podman-env): AI_KIT -> ~/.podman_env -> "podman".
 # Colour, first match wins: AI_ENV_COLOR env -> ~/.podman_color (first line) -> a stable palette
-# entry derived from the name (so every pod gets its own recognizable colour). Accepts
-# "#rrggbb", "rrggbb", or "r,g,b".
+# entry derived from the name (so every pod gets its own recognizable colour). An override may be
+# "#rrggbb", "rrggbb", or "r,g,b" (0-255); anything malformed is ignored and the palette colour is
+# used instead, so a bad value never breaks a launch.
 set -uo pipefail
 
 name="${AI_KIT:-}"
 if [[ -z "$name" && -r "$HOME/.podman_env" ]]; then read -r name < "$HOME/.podman_env" || true; fi
 name="${name:-podman}"
 
-raw=""
-if [[ -n "${AI_ENV_COLOR:-}" ]]; then
-    raw="$AI_ENV_COLOR"
-elif [[ -r "$HOME/.podman_color" ]]; then
-    read -r raw < "$HOME/.podman_color" || true
-fi
+# Parse "#rrggbb" | "rrggbb" | "r,g,b" -> "R G B" (0-255) on stdout; return non-zero if invalid.
+parse_color() {
+    local in="${1//[[:space:]]/}" r g b extra
+    if [[ "$in" == *,* ]]; then
+        IFS=',' read -r r g b extra <<<"$in"
+        [[ -n "${b:-}" && -z "${extra:-}" ]] || return 1
+        [[ "$r" =~ ^[0-9]+$ && "$g" =~ ^[0-9]+$ && "$b" =~ ^[0-9]+$ ]] || return 1
+    else
+        in="${in#\#}"
+        [[ "$in" =~ ^[0-9a-fA-F]{6}$ ]] || return 1
+        r=$((16#${in:0:2})); g=$((16#${in:2:2})); b=$((16#${in:4:2}))
+    fi
+    (( r <= 255 && g <= 255 && b <= 255 )) || return 1
+    printf '%d %d %d' "$r" "$g" "$b"
+}
 
-if [[ -z "$raw" ]]; then
-    # Distinct, readable palette; index is a stable checksum of the name.
-    palette=(e6194b 3cb44b 4363d8 f58231 911eb4 42d4f4 f032e6 469990 \
-             9a6324 800000 808000 000075 bfef45 fabed4 e6beff 46d2f4)
-    idx=$(( $(cksum <<<"$name" | cut -d' ' -f1) % ${#palette[@]} ))
-    raw="${palette[$idx]}"
-fi
+# The colour as "R G B": a valid override, else a stable distinct palette entry from the name.
+resolve_rgb() {
+    local raw="" rgb
+    if [[ -n "${AI_ENV_COLOR:-}" ]]; then
+        raw="$AI_ENV_COLOR"
+    elif [[ -r "$HOME/.podman_color" ]]; then
+        read -r raw < "$HOME/.podman_color" || true
+    fi
+    if [[ -n "$raw" ]] && rgb=$(parse_color "$raw"); then
+        printf '%s' "$rgb"; return
+    fi
+    # 16 visually distinct colours (Sasha Trubetskoy's palette); index by a stable checksum.
+    local palette=(e6194b 3cb44b 4363d8 f58231 911eb4 42d4f4 f032e6 469990 \
+                   9a6324 800000 808000 000075 bfef45 fabed4 e6beff ffe119)
+    local idx=$(( $(cksum <<<"$name" | cut -d' ' -f1) % ${#palette[@]} ))
+    parse_color "${palette[$idx]}"
+}
 
-# Normalize to decimal r/g/b.
-if [[ "$raw" == *,* ]]; then
-    IFS=',' read -r r g b <<<"$raw"
-else
-    hex="${raw#\#}"
-    r=$((16#${hex:0:2})); g=$((16#${hex:2:2})); b=$((16#${hex:4:2}))
-fi
-
+# Only forms that need the colour compute it (so a bad override never errors --appid / --name).
 case "${1:-}" in
-    --hex)   printf '#%02x%02x%02x\n' "$r" "$g" "$b" ;;
     --appid) printf 'aidev-%s\n' "$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '-')" ;;
     --name)  printf '%s\n' "$name" ;;
-    *)       printf '%d,%d,%d\n' "$r" "$g" "$b" ;;
+    --hex)   read -r r g b <<<"$(resolve_rgb)"; printf '#%02x%02x%02x\n' "$r" "$g" "$b" ;;
+    *)       read -r r g b <<<"$(resolve_rgb)"; printf '%d,%d,%d\n'     "$r" "$g" "$b" ;;
 esac
