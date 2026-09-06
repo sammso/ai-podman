@@ -1,5 +1,6 @@
 #!/bin/bash
-# Node 22 LTS (NodeSource) + AI coding CLIs: Claude Code, Codex, Gemini.
+# Node 22 LTS (NodeSource) + AI coding CLIs: Claude Code, Codex.
+# (The Antigravity CLI `agy` is a standalone binary — installed by install-antigravity.sh.)
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -18,7 +19,6 @@ rm -rf /var/lib/apt/lists/*
 
 npm install -g \
     @anthropic-ai/claude-code \
-    @openai/codex \
-    @google/gemini-cli
+    @openai/codex
 
 npm cache clean --force

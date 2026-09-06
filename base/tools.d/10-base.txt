@@ -1,7 +1,7 @@
 AI coding CLIs
   claude          Claude Code
   codex           OpenAI Codex CLI
-  gemini          Gemini CLI
+  agy             Antigravity CLI — Google agentic coding agent (antigravity.google)
   rtk             compress command output before an AI reads it   (rtk init -g)
   agent-browser   browser automation for agents (drives the bundled Chrome)
   herdr           keep coding agents running in the background (herdr.dev)

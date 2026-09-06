@@ -1,9 +1,9 @@
 # localhost/ai-base — AI development base image.
-# Claude Code, Codex and Gemini CLIs, Google Chrome, Node 22 LTS and CLI essentials.
+# Claude Code + Codex CLIs, Antigravity CLI (agy), Google Chrome, Node 22 LTS and CLI essentials.
 # No USER/ENTRYPOINT: run-sandboxed.sh runs it as the invoking user via plain podman.
 FROM ubuntu:24.04
 
-# Install npm globals into a user-owned prefix so the AI CLIs (Claude/Codex/Gemini/
+# Install npm globals into a user-owned prefix so the AI CLIs (Claude/Codex/
 # agent-browser) can self-update as the container user (uid 1000) without root. The default
 # prefix /usr puts bin symlinks in root-owned /usr/bin, which blocks `claude update`/npm -g
 # ("no write permission to npm prefix"). uid 1000 = user `ubuntu` in this image.
@@ -17,6 +17,10 @@ RUN bash /opt/build/install-base-utils.sh \
     && bash /opt/build/install-node-clis.sh \
     && bash /opt/build/install-chrome.sh \
     && rm -rf /opt/build
+
+# Antigravity CLI (agy) — Google's terminal-first agentic coding CLI (standalone binary)
+COPY scripts/install-antigravity.sh /opt/build/
+RUN bash /opt/build/install-antigravity.sh && rm -rf /opt/build
 
 # Claude Desktop (official Linux beta) - add to the host menu with
 # `podman/export-app.sh --persist-work base <dir> claude-desktop`
@@ -70,4 +74,4 @@ ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
 LABEL org.opencontainers.image.title="ai-base" \
-      org.opencontainers.image.description="AI dev base: Claude Code, Codex, Gemini CLIs, Claude Desktop, Chrome, Meld, Lite XL, WezTerm, rtk, agent-browser, Node LTS"
+      org.opencontainers.image.description="AI dev base: Claude Code, Codex, Antigravity (agy) CLIs, Claude Desktop, Chrome, Meld, Lite XL, WezTerm, rtk, agent-browser, Node LTS"

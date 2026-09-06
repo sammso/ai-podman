@@ -22,15 +22,15 @@ The first shell in a container prints an index of these commands; run **`tools`*
 
 ### AI coding CLIs
 
-`claude` (Claude Code), `codex`, and `gemini` are installed globally. Sign in or pass API keys
-per [AI CLI auth](../docs/TECHNICAL.md#ai-cli-auth--updates).
+`claude` (Claude Code) and `codex` are installed globally (npm); `agy` (Google's
+[Antigravity CLI](https://antigravity.google/product/antigravity-cli)) is a standalone binary.
+Sign in or pass API keys per [AI CLI auth](../docs/TECHNICAL.md#ai-cli-auth--updates).
 
 ### rtk
 
 `rtk` is a CLI proxy that compresses command output ~60–90 % before an AI CLI reads it (fewer
-tokens). The binary is installed; enable its hook per tool with `rtk init -g` (Claude Code) or
-`rtk init -g --gemini` — config lands in `~/.config/rtk` and persists per project under
-`--persist-work`.
+tokens). The binary is installed; enable its hook with `rtk init -g` (Claude Code) — config lands
+in `~/.config/rtk` and persists per project under `--persist-work`.
 
 ### agent-browser
 
