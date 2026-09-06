@@ -14,7 +14,7 @@
 #   export-app.sh --regroup                              # migrate already-exported launchers into submenus
 #   export-app.sh --exec   <sandbox-name> <app> [args...] # (internal) invoked by the app .desktop
 #
-# <app> is the in-container launcher command (chrome, claude-desktop, code, idea, webstorm,
+# <app> is the in-container launcher command (chrome, claude-desktop, chatgpt, code, idea, webstorm,
 # studio, meld, lite-xl, wezterm). The sandbox must have been created with GUI for exec'd apps
 # to reach the host desktop.
 #

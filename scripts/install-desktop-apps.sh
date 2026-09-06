@@ -74,6 +74,17 @@ exec run-detached /usr/bin/claude-desktop "${args[@]}" "$@"
 EOF
 chmod +x /usr/local/bin/claude-desktop
 
+# --- chatgpt: OpenAI's ChatGPT desktop app (bundles Codex) — same Electron/Wayland treatment ---
+# Shadows /usr/bin/chatgpt (PATH order) and execs it by absolute path (no recursion).
+cat > /usr/local/bin/chatgpt <<'EOF'
+#!/bin/bash
+args=()
+[[ -n "${WAYLAND_DISPLAY:-}" ]] && args=(--ozone-platform=wayland)
+appid="$(ai-env-color --appid 2>/dev/null)"; [[ -n "$appid" ]] && args+=(--class="$appid")
+exec run-detached /usr/bin/chatgpt "${args[@]}" "$@"
+EOF
+chmod +x /usr/local/bin/chatgpt
+
 # --- gui-apps: list the GUI quick commands available in this container ---
 cat > /usr/local/bin/gui-apps <<'EOF'
 #!/bin/bash
@@ -83,6 +94,7 @@ Launched in the background, detached from the terminal (logs in $XDG_RUNTIME_DIR
 
   chrome          Google Chrome (Wayland-native; = google-chrome --ozone-platform=wayland)
   claude-desktop  Claude Desktop (add --no-sandbox if the Electron sandbox refuses)
+  chatgpt         ChatGPT desktop (OpenAI; bundles Codex — add --no-sandbox if it refuses)
   meld            Meld visual diff / merge tool
   lite-xl         Lite XL editor
   wezterm         GPU-accelerated terminal (opens a shell in the container)

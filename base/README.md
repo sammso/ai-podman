@@ -70,6 +70,7 @@ Chromium/Electron launchers also try a per-pod `aidev-<env>` app_id for composit
 |---------|-----|
 | `chrome` | Google Chrome, Wayland-native (`google-chrome --ozone-platform=wayland`) |
 | `claude-desktop` | Claude Desktop (add `--no-sandbox` if the Electron sandbox refuses) |
+| `chatgpt` | ChatGPT desktop (OpenAI; bundles Codex — add `--no-sandbox` if it refuses) |
 | `meld` | Meld visual diff / merge tool |
 | `lite-xl` | Lite XL editor |
 | `wezterm` | GPU terminal (opens a shell inside the container) |
@@ -94,3 +95,9 @@ podman/run-sandboxed.sh --gui base ~/projects/site chrome
   limits: no Computer Use or dictation; the Quick Entry global hotkey may not work from inside a
   container. Residual `Gtk-Message: Failed to load module …` lines are harmless (KDE-only GTK
   modules absent in the image).
+- **ChatGPT desktop** (official OpenAI Linux preview — the `chatgpt` command; bundles Chat, Work
+  and **Codex**): sign in with your OpenAI account. Like Claude Desktop it's an Electron app that
+  isn't packaged for the Fedora host, so it runs in-container; use `--persist-work` to keep its
+  login, and the launcher forces `--ozone-platform=wayland` on a Wayland session. Add
+  `--no-sandbox` only if the Electron sandbox refuses. (The `codex` CLI is separate and always
+  available.)

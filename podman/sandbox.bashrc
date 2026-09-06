@@ -24,7 +24,7 @@ _sb_kit_of() {
 
 # GUI launcher commands available in a kit: base apps + kit extras.
 _sb_gui_apps() {
-    local base=(chrome claude-desktop meld lite-xl wezterm)
+    local base=(chrome claude-desktop chatgpt meld lite-xl wezterm)
     case "$1" in
         java)    printf '%s\n' "${base[@]}" idea ;;
         node)    printf '%s\n' "${base[@]}" code webstorm ;;

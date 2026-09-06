@@ -13,8 +13,8 @@ one place.
 
 ```
 ubuntu:24.04
-    └── localhost/ai-base          AI CLIs, Claude Desktop, Chrome, Meld, Lite XL, WezTerm,
-            │                       rtk, agent-browser, Node 22 LTS, git, build tools, terminal
+    └── localhost/ai-base          AI CLIs, Claude Desktop, ChatGPT/Codex desktop, Chrome, Meld,
+            │                       Lite XL, WezTerm, rtk, agent-browser, Node 22 LTS, git, terminal
             ├── localhost/ai-java       + JDK 17/21/25, Gradle, Maven, Blade, IntelliJ,
             │                             PostgreSQL, MinIO, SQLLine, Liferay stack
             ├── localhost/ai-dev        + JDK 17/21/25 (default 21)
@@ -196,7 +196,7 @@ colour on the first line of `~/.podman_color` (persists per project with `--pers
 - **Chrome** self-decorates, so its launcher passes `--set-user-color=<r,g,b>` — the browser
   **frame/title is tinted** with the pod colour on any desktop, no compositor setup needed. This
   is the reliable path.
-- The Chromium/Electron launchers (`chrome`, `claude-desktop`, `code`) also pass `--class=aidev-<env>`.
+- The Chromium/Electron launchers (`chrome`, `claude-desktop`, `chatgpt`, `code`) also pass `--class=aidev-<env>`.
   Recent Chromium/Electron use that as the **Wayland app_id**, so a compositor rule can then
   border/colour them — e.g. Hyprland `windowrulev2 = bordercolor rgb(3cb44b), class:^(aidev-.*)$`
   (Sway: `for_window [app_id="^aidev-"] …`). **Behaviour is version-dependent**, though: some
@@ -236,7 +236,7 @@ spec: a per-sandbox category `X-AIDev-<name>`, a `.directory` under
 `kbuildsycoca6` refreshes KDE's cache). `--regroup` moves launchers created before this into their
 submenus.
 
-`<app>` is the in-container launcher command (`chrome`, `claude-desktop`, `code`, `idea`,
+`<app>` is the in-container launcher command (`chrome`, `claude-desktop`, `chatgpt`, `code`, `idea`,
 `webstorm`, `studio`, `meld`, `lite-xl`, `wezterm`). The exec re-passes the Wayland/X11 env and
 `AI_KIT=<name>` (so the [per-pod colour](#recognizing-container-windows-by-colour) resolves). The
 sandbox must have been created **with GUI** — its `sandbox.conf` profile must include `gui` — for

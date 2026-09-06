@@ -27,6 +27,11 @@ RUN bash /opt/build/install-antigravity.sh && rm -rf /opt/build
 COPY scripts/install-claude-desktop.sh /opt/build/
 RUN bash /opt/build/install-claude-desktop.sh && rm -rf /opt/build
 
+# ChatGPT desktop app (official OpenAI Linux preview) — bundles Chat, Work and Codex; surfaced
+# on the host like Claude Desktop (`podman/export-app.sh ... chatgpt`). Pinned + sha256-verified.
+COPY scripts/install-chatgpt-desktop.sh /opt/build/
+RUN bash /opt/build/install-chatgpt-desktop.sh && rm -rf /opt/build
+
 # Per-pod GUI window identity: ai-env-color resolves this sandbox's colour + app_id so the
 # GUI launchers can tint/tag their windows (chrome --set-user-color, --class=aidev-<env>).
 COPY base/ai-env-color /usr/local/bin/ai-env-color
@@ -74,4 +79,4 @@ ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
 LABEL org.opencontainers.image.title="ai-base" \
-      org.opencontainers.image.description="AI dev base: Claude Code, Codex, Pi, Antigravity (agy) CLIs, Claude Desktop, Chrome, Meld, Lite XL, WezTerm, rtk, agent-browser, Node LTS"
+      org.opencontainers.image.description="AI dev base: Claude Code, Codex, Pi, Antigravity (agy) CLIs, Claude Desktop, ChatGPT/Codex desktop, Chrome, Meld, Lite XL, WezTerm, rtk, agent-browser, Node LTS"
