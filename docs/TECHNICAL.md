@@ -227,7 +227,14 @@ podman/export-app.sh portal chrome "Chrome (portal)"   # app launcher + "Start p
 podman/export-app.sh --no-start portal code            # app launcher only
 podman/export-app.sh --remove portal chrome            # remove the app launcher
 podman/export-app.sh --remove portal                   # remove the "Start portal" launcher
+podman/export-app.sh --regroup                         # migrate previously-exported entries into submenus
 ```
+
+Each sandbox's launchers are grouped under an **"AI Dev › `<sandbox>`"** submenu (via the XDG menu
+spec: a per-sandbox category `X-AIDev-<name>`, a `.directory` under
+`~/.local/share/desktop-directories/`, and a merge `.menu` under `~/.config/menus/…-merged/`;
+`kbuildsycoca6` refreshes KDE's cache). `--regroup` moves launchers created before this into their
+submenus.
 
 `<app>` is the in-container launcher command (`chrome`, `claude-desktop`, `code`, `idea`,
 `webstorm`, `studio`, `meld`, `lite-xl`, `wezterm`). The exec re-passes the Wayland/X11 env and
