@@ -244,19 +244,19 @@ exec'd apps to display; a sandbox made without GUI has no Wayland socket to reac
 
 ## AI CLI auth & updates
 
-The AI coding CLIs (`claude`, `codex`, `agy`) come from the base image and exist in every kit.
-(`claude`/`codex` are npm globals; `agy` is Google's [Antigravity](https://antigravity.google)
-CLI, a standalone binary.)
+The AI coding CLIs (`claude`, `codex`, `pi`, `agy`) come from the base image and exist in every
+kit. (`claude`/`codex`/`pi` are npm globals; `pi` is [Pi](https://pi.dev), a minimal agent
+harness; `agy` is Google's [Antigravity](https://antigravity.google) CLI, a standalone binary.)
 
-1. **Interactive login:** run `claude` / `codex` / `agy` once inside the container (`agy` walks
+1. **Interactive login:** run `claude` / `codex` / `pi` / `agy` once inside the container (`agy` walks
    through a first-launch sign-in). With `--persist-work` the login persists in `<project>/`
    (`HOME=/work`) and is reused on the next run against the same project; without it it's ephemeral.
 2. **API keys (headless):** pass `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` into the container, e.g.
    `podman/run-sandboxed.sh dev ~/proj bash -c '…'` after exporting them, or bake them into the
    persisted `<project>` `.bashrc`.
 
-**Updates.** `claude`/`codex` are npm globals whose tree (`/opt/npm`) is owned by the container
-user, so they **self-update in-container** (no "no write permission to npm prefix"). `agy` is a
+**Updates.** `claude`/`codex`/`pi` are npm globals whose tree (`/opt/npm`) is owned by the
+container user, so they **self-update in-container** (no "no write permission to npm prefix"). `agy` is a
 pinned binary in `/usr/local/bin` — rebuild the base image to bump it. In
 a **named** sandbox the update persists until you `sb rm` it; ephemeral one-shot runs re-check
 each time. To pin a sandbox to the image's version, add `{"env":{"DISABLE_AUTOUPDATER":"1"}}` to

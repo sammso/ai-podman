@@ -4,12 +4,12 @@ AI-assisted development environments run with plain **rootless Podman**. Each se
 `ai-*` image sharing exactly **one** project directory with the host — the host home, dotfiles,
 SSH keys and other projects stay invisible.
 
-One base image carries the AI coding CLIs (Claude Code, Codex, Antigravity), Claude Desktop, Google
-Chrome, Node 22 LTS and CLI essentials. Three dev-kit images build on it:
+One base image carries the AI coding CLIs (Claude Code, Codex, Pi, Antigravity), Claude Desktop,
+Google Chrome, Node 22 LTS and CLI essentials. Three dev-kit images build on it:
 
 | Image | Adds |
 |-------|------|
-| [`localhost/ai-base`](base/README.md) | Claude/Codex/Antigravity (`agy`) CLIs, Claude Desktop, Chrome, Meld, Lite XL, WezTerm, rtk, agent-browser, Node 22 LTS, git, build tools |
+| [`localhost/ai-base`](base/README.md) | Claude/Codex/Pi/Antigravity (`agy`) CLIs, Claude Desktop, Chrome, Meld, Lite XL, WezTerm, rtk, agent-browser, Node 22 LTS, git, build tools |
 | [`localhost/ai-java`](java/README.md) | IntelliJ IDEA Ultimate, JDK 17/21/25, Gradle, Maven, PostgreSQL, MinIO, SQLLine — plus a full Liferay stack |
 | [`localhost/ai-dev`](dev/README.md) | Temurin JDK 17/21/25 (default 21); Node/NPM LTS from base |
 | [`localhost/ai-android`](android/README.md) | Android Studio, JDK 17 default, Android SDK + emulator, Flutter, React Native-ready |

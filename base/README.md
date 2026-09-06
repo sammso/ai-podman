@@ -22,7 +22,8 @@ The first shell in a container prints an index of these commands; run **`tools`*
 
 ### AI coding CLIs
 
-`claude` (Claude Code) and `codex` are installed globally (npm); `agy` (Google's
+`claude` (Claude Code), `codex`, and `pi` (Pi, the minimal agent harness from
+[pi.dev](https://pi.dev)) are installed globally (npm); `agy` (Google's
 [Antigravity CLI](https://antigravity.google/product/antigravity-cli)) is a standalone binary.
 Sign in or pass API keys per [AI CLI auth](../docs/TECHNICAL.md#ai-cli-auth--updates).
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Node 22 LTS (NodeSource) + AI coding CLIs: Claude Code, Codex.
+# Node 22 LTS (NodeSource) + AI coding CLIs: Claude Code, Codex, Pi.
 # (The Antigravity CLI `agy` is a standalone binary — installed by install-antigravity.sh.)
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -20,5 +20,9 @@ rm -rf /var/lib/apt/lists/*
 npm install -g \
     @anthropic-ai/claude-code \
     @openai/codex
+
+# Pi coding agent (pi.dev) — a pure-JS npm CLI; --ignore-scripts skips only its optional
+# native clipboard dep (node-gyp), which Pi runs without.
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
 npm cache clean --force
