@@ -11,6 +11,10 @@ ENV FNM_DIR=/opt/fnm
 COPY scripts/install-node-versions.sh /opt/build/
 RUN bash /opt/build/install-node-versions.sh && rm -rf /opt/build
 
+# CodeGraph — pre-indexed code knowledge graph (SQLite) for AI agents; `codegraph` npm global
+COPY scripts/install-codegraph.sh /opt/build/
+RUN bash /opt/build/install-codegraph.sh && rm -rf /opt/build
+
 # Visual Studio Code (official Microsoft build) — `code` launches to the host desktop under --gui
 COPY scripts/install-vscode.sh /opt/build/
 RUN bash /opt/build/install-vscode.sh && rm -rf /opt/build
@@ -24,4 +28,4 @@ COPY node/tools.d/40-node.txt /etc/ai-dev/tools.d/
 RUN echo node > /etc/ai-dev/kit
 
 LABEL org.opencontainers.image.title="ai-node" \
-      org.opencontainers.image.description="Node.js dev: fnm (switchable Node 20/22), Visual Studio Code, JetBrains WebStorm"
+      org.opencontainers.image.description="Node.js dev: fnm (switchable Node 20/22), Visual Studio Code, JetBrains WebStorm, CodeGraph"

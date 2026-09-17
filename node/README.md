@@ -46,3 +46,20 @@ podman/run-sandboxed.sh --gui --x11 --persist-work node ~/proj webstorm
   rootless podman. Also works as a CLI (`code .`, `code --version`).
 - **`webstorm`** — JetBrains WebStorm. Needs `--gui --x11`. It's a licensed IDE — free for
   non-commercial use, otherwise a trial/paid license (sign in on first launch).
+
+## CodeGraph
+
+[`codegraph`](https://github.com/colbymchenry/codegraph) is a pre-indexed **code knowledge graph**:
+it extracts symbols, call edges and dependencies across 20+ languages into a local **SQLite**
+database and watches for changes, so an AI coding agent answers architectural questions in one tool
+call instead of slow file-by-file exploration. It runs entirely locally — no external services.
+
+```bash
+cd ~/proj
+codegraph init         # index the current project (creates the local SQLite graph)
+codegraph explore      # query the graph
+```
+
+Installed globally via npm into base's user-owned `/opt/npm`, so it **self-updates** in-container
+without root (like the AI CLIs — see [AI CLI updates](../docs/TECHNICAL.md#ai-cli-auth--updates)).
+Use `--persist-work` to keep the project's index across runs.

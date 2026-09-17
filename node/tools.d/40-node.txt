@@ -2,6 +2,7 @@ Node.js
   fnm                 Node version manager   (fnm install 20 · fnm use 18 · fnm default 22)
   node / npm / npx    active Node (switched by fnm; auto-switches per .node-version on cd)
   corepack            pnpm / yarn shims   (corepack enable)
+  codegraph           code knowledge graph for AI agents   (codegraph init · codegraph explore)
 
 IDEs   (need --gui --x11)
   code                Visual Studio Code
