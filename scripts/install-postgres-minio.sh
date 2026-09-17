@@ -52,8 +52,21 @@ PGDATA="${PGDATA:-$HOME/.local/share/postgres}"
 EOF
 
 # --- MinIO server + mc client ---
-curl -fsSL -o /usr/local/bin/minio https://dl.min.io/server/minio/release/linux-amd64/minio
-curl -fsSL -o /usr/local/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+# dl.min.io (the old rolling-"latest" download CDN) was retired and now returns HTTP 410, so pull
+# pinned, sha256-verified binaries from the GitHub release assets instead. Bump by refetching the
+# newest *binary* release tag and its .sha256sum (skip metadata-only "Security/CVE" releases):
+#   https://github.com/minio/minio/releases   and   https://github.com/minio/mc/releases
+MINIO_VERSION=RELEASE.2025-09-07T16-13-09Z
+MINIO_SHA256=7c5bd8512c6e966455b1d198209358b2d191c77a83ab377c4073281065fb855f
+MC_VERSION=RELEASE.2025-08-13T08-35-41Z
+MC_SHA256=01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891
+
+curl -fL --retry 3 --retry-all-errors -o /usr/local/bin/minio \
+    "https://github.com/minio/minio/releases/download/${MINIO_VERSION}/minio.linux-amd64.${MINIO_VERSION}"
+echo "${MINIO_SHA256}  /usr/local/bin/minio" | sha256sum -c -
+curl -fL --retry 3 --retry-all-errors -o /usr/local/bin/mc \
+    "https://github.com/minio/mc/releases/download/${MC_VERSION}/mc.linux-amd64.${MC_VERSION}"
+echo "${MC_SHA256}  /usr/local/bin/mc" | sha256sum -c -
 chmod +x /usr/local/bin/minio /usr/local/bin/mc
 
 cat > /usr/local/bin/minio-start <<'EOF'
